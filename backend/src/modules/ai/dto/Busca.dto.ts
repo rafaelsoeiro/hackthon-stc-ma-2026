@@ -72,7 +72,8 @@ export class TermoExplicadoDto {
   traducao: string;
 
   @ApiProperty({
-    example: 'O governo reserva o dinheiro para garantir o pagamento ao fornecedor.',
+    example:
+      'O governo reserva o dinheiro para garantir o pagamento ao fornecedor.',
   })
   definicao: string;
 }
@@ -84,14 +85,17 @@ export class ValorDto {
   @ApiProperty({ example: 'R$ 420.000,00' })
   valor_formatado: string;
 
-  @ApiProperty({ example: 'Equivale a 100.000 passagens de ônibus em São Luís' })
+  @ApiProperty({
+    example: 'Equivale a 100.000 passagens de ônibus em São Luís',
+  })
   comparativo_local: string;
 }
 
 export class BuscaResponseDto {
   @ApiProperty({
     description: 'Resposta em linguagem acessível ao cidadão',
-    example: 'Em 2024, o governo reservou R$ 420.000,00 para serviços de saúde...',
+    example:
+      'Em 2024, o governo reservou R$ 420.000,00 para serviços de saúde...',
   })
   resposta_cidada: string;
 

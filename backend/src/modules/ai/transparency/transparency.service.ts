@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
 
+type ContextoIA = {
+  fonte: string;
+  dadosTecnicos: Array<Record<string, unknown>>;
+};
+
 @Injectable()
 export class TransparencyService {
   /**
    * Busca dados técnicos do portal da transparência para dar contexto à IA.
    * Em um sistema real, isso chamaria as APIs do Estado (SEFAZ, STC, etc).
    */
-  async getContextoParaIA(pergunta: string, assunto?: string): Promise<any> {
+  getContextoParaIA(pergunta: string, assunto?: string): ContextoIA {
     // Retorna dados mockados com base em palavras-chave da pergunta ou assunto
     const query = (pergunta + ' ' + (assunto || '')).toLowerCase();
 
@@ -19,7 +24,8 @@ export class TransparencyService {
             valor_empenhado: 'R$ 4.250.000,00',
             valor_liquidado: 'R$ 3.800.000,00',
             valor_pago: 'R$ 3.500.000,00',
-            descricao_despesa: 'Manutenção de leitos de UTI e compra de insumos hospitalares.',
+            descricao_despesa:
+              'Manutenção de leitos de UTI e compra de insumos hospitalares.',
           },
         ],
       };
@@ -40,7 +46,11 @@ export class TransparencyService {
       };
     }
 
-    if (query.includes('pessoal') || query.includes('salário') || query.includes('salario')) {
+    if (
+      query.includes('pessoal') ||
+      query.includes('salário') ||
+      query.includes('salario')
+    ) {
       return {
         fonte: 'Portal da Transparência MA - Folha de Pagamento',
         dadosTecnicos: [

@@ -10,14 +10,15 @@ export class AiService {
 
   constructor(private transparencyService: TransparencyService) {
     // IMPORTANTE: Em produção, o ideal é ter a chave no .env e pegar via ConfigService
-    const apiKey = process.env.GEMINI_API_KEY || 'COLOQUE_SUA_CHAVE_GEMINI_AQUI';
+    const apiKey =
+      process.env.GEMINI_API_KEY || 'COLOQUE_SUA_CHAVE_GEMINI_AQUI';
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
-  async processarBusca(buscaDto: BuscaDto): Promise<any> {
+  async processarBusca(buscaDto: BuscaDto): Promise<unknown> {
     try {
       // 1. Busca os dados de contexto no portal da transparência (nosso serviço mock)
-      const contexto = await this.transparencyService.getContextoParaIA(
+      const contexto = this.transparencyService.getContextoParaIA(
         buscaDto.pergunta,
         buscaDto.assunto,
       );
@@ -50,10 +51,13 @@ Por favor, responda estritamente no formato JSON solicitado nas normas.
       const responseText = result.response.text();
 
       // 6. Retorna o JSON parseado
-      return JSON.parse(responseText);
+      const parsedResponse: unknown = JSON.parse(responseText);
+      return parsedResponse;
     } catch (error) {
       console.error('Erro na chamada do Gemini:', error);
-      throw new InternalServerErrorException('Não foi possível gerar a resposta com a IA. Verifique sua chave de API.');
+      throw new InternalServerErrorException(
+        'Não foi possível gerar a resposta com a IA. Verifique sua chave de API.',
+      );
     }
   }
 }

@@ -27,4 +27,4 @@ import appConfig from './config/app.config';
     TransparencyModule,
   ],
 })
-export class AppModule { }
+export class AppModule {}

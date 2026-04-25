@@ -2,10 +2,10 @@ import { THESAURUS_MAP } from '../transparency/constants/thesaurus.map';
 
 // Contexto local para comparativos (atualizar conforme necessidade)
 const REFERENCIAS_LOCAIS = {
-  passagemOnibus: 4.2,       // R$ — São Luís
-  cesta_basica: 750,          // R$ — estimativa DIEESE MA
-  salario_minimo: 1412,       // R$ — 2025
-  salario_medio_ma: 2200,     // R$ — estimativa IBGE
+  passagemOnibus: 4.2, // R$ — São Luís
+  cesta_basica: 750, // R$ — estimativa DIEESE MA
+  salario_minimo: 1412, // R$ — 2025
+  salario_medio_ma: 2200, // R$ — estimativa IBGE
 };
 
 /**
