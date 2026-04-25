@@ -11,3 +11,349 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+//
+// 🏛️ BASE
+//
+
+model UnidadeGestora {
+  id     Int    @id @default(autoincrement())
+  codigo String @unique
+  nome   String
+  sigla  String?
+
+  despesas       Despesa[]
+  receitas       Receita[]
+  transferencias Transferencia[]
+  remuneracoes   Remuneracao[]
+  licitacoes     Licitacao[]
+  contratos      Contrato[]
+  obras          Obra[]
+  emendas        EmendaParlamentar[]
+}
+
+model Credor {
+  id   Int    @id @default(autoincrement())
+  nome String
+  cnpj String?
+
+  despesas  Despesa[]
+  contratos Contrato[]
+  obras     Obra[]
+  emendas   EmendaParlamentar[]
+
+  @@index([cnpj])
+}
+
+//
+// 💰 DESPESA
+//
+
+model Despesa {
+  id              Int      @id @default(autoincrement())
+
+  codigoEmpenho   String?
+  descricao       String
+  dataEmissao     DateTime
+
+  valorEmpenhado  Decimal? @db.Decimal(14, 2)
+  valorLiquidado  Decimal? @db.Decimal(14, 2)
+  valorPago       Decimal? @db.Decimal(14, 2)
+
+  naturezaDespesa String?
+  funcao          String?
+  subfuncao       String?
+  programa        String?
+  acao            String?
+  fonte           String?
+
+  tipoDespesa     String?
+  categoria       String?
+
+  unidadeGestoraId Int
+  credorId         Int?
+
+  unidadeGestora UnidadeGestora @relation(fields: [unidadeGestoraId], references: [id])
+  credor         Credor?        @relation(fields: [credorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeGestoraId])
+  @@index([dataEmissao])
+}
+
+//
+// 💸 RECEITA
+//
+
+model Receita {
+  id               Int      @id @default(autoincrement())
+
+  codigo           String?
+  descricao        String
+
+  valorPrevisto    Decimal  @db.Decimal(14, 2)
+  valorRealizado   Decimal  @db.Decimal(14, 2)
+
+  ano              Int
+  mes              Int?
+
+  naturezaReceita  String
+  fonte            String?
+
+  categoria        String?
+
+  unidadeGestoraId Int
+  unidadeGestora   UnidadeGestora @relation(fields: [unidadeGestoraId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeGestoraId])
+  @@index([ano, mes])
+}
+
+//
+// 🔄 TRANSFERENCIA
+//
+
+model Transferencia {
+  id                Int      @id @default(autoincrement())
+
+  tipo              String   // recebida | realizada
+
+  ano               Int
+  mes               Int?
+
+  descricao         String?
+
+  valorPrevisto     Decimal? @db.Decimal(14, 2)
+  valorRealizado    Decimal? @db.Decimal(14, 2)
+
+  valorEmpenhado    Decimal? @db.Decimal(14, 2)
+  valorLiquidado    Decimal? @db.Decimal(14, 2)
+  valorPago         Decimal? @db.Decimal(14, 2)
+
+  natureza          String?
+  fonte             String?
+
+  funcao            String?
+  programa          String?
+
+  categoria         String?
+
+  unidadeGestoraId  Int
+  unidadeGestora    UnidadeGestora @relation(fields: [unidadeGestoraId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeGestoraId])
+  @@index([ano, mes])
+}
+
+//
+// 👥 SERVIDORES / REMUNERAÇÃO
+//
+
+model Servidor {
+  id        Int     @id @default(autoincrement())
+  nome      String
+  cpf       String?
+  matricula String?
+
+  remuneracoes Remuneracao[]
+
+  @@index([cpf])
+}
+
+model Remuneracao {
+  id                Int      @id @default(autoincrement())
+
+  ano               Int
+  mes               Int
+
+  valor             Decimal? @db.Decimal(14, 2)
+
+  cargo             String
+  naturezaCargo     String
+
+  categoria         String?
+
+  unidadeGestoraId  Int
+  servidorId        Int
+
+  unidadeGestora UnidadeGestora @relation(fields: [unidadeGestoraId], references: [id])
+  servidor       Servidor       @relation(fields: [servidorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeGestoraId])
+  @@index([ano, mes])
+}
+
+//
+// 🧾 LICITAÇÃO
+//
+
+model TipoContratacao {
+  id   Int    @id @default(autoincrement())
+  nome String @unique
+
+  licitacoes Licitacao[]
+  contratos  Contrato[]
+}
+
+model Licitacao {
+  id                 Int      @id @default(autoincrement())
+
+  numeroProcesso     String
+  descricao          String
+
+  ano                Int
+
+  dataPublicacao     DateTime?
+  dataAbertura       DateTime?
+
+  status             String
+
+  valorEstimado      Decimal? @db.Decimal(14, 2)
+  valorHomologado    Decimal? @db.Decimal(14, 2)
+
+  prazoEntrega       String?
+  localEntrega       String?
+
+  categoria          String?
+
+  unidadeGestoraId   Int
+  tipoContratacaoId  Int
+
+  unidadeGestora  UnidadeGestora  @relation(fields: [unidadeGestoraId], references: [id])
+  tipoContratacao TipoContratacao @relation(fields: [tipoContratacaoId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeGestoraId])
+  @@index([ano])
+}
+
+//
+// 📄 CONTRATO
+//
+
+model Contrato {
+  id                Int      @id @default(autoincrement())
+
+  numero            String
+  ano               Int
+
+  objeto            String
+
+  dataAssinatura    DateTime?
+
+  valorGlobal       Decimal? @db.Decimal(14, 2)
+
+  inicioVigencia    DateTime?
+  fimVigencia       DateTime?
+
+  status            String?
+  origem            String?
+
+  categoria         String?
+
+  unidadeGestoraId  Int
+  credorId          Int?
+  tipoContratacaoId Int?
+
+  unidadeGestora  UnidadeGestora   @relation(fields: [unidadeGestoraId], references: [id])
+  credor          Credor?          @relation(fields: [credorId], references: [id])
+  tipoContratacao TipoContratacao? @relation(fields: [tipoContratacaoId], references: [id])
+
+  obras Obra[]
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeGestoraId])
+  @@index([ano])
+}
+
+//
+// 🏗️ OBRA
+//
+
+model Obra {
+  id                 Int      @id @default(autoincrement())
+
+  descricao          String
+
+  status             String
+  percentualExecucao Float?
+
+  dataInicio         DateTime?
+  dataPrevisaoFim    DateTime?
+  dataAtualizacao    DateTime?
+
+  valorContrato      Decimal? @db.Decimal(14, 2)
+  valorAditivo       Decimal? @db.Decimal(14, 2)
+  valorTotal         Decimal? @db.Decimal(14, 2)
+
+  saldo              Decimal? @db.Decimal(14, 2)
+
+  municipio          String
+  localidade         String?
+
+  categoria          String?
+
+  unidadeGestoraId   Int
+  credorId           Int?
+  contratoId         Int?
+
+  unidadeGestora UnidadeGestora @relation(fields: [unidadeGestoraId], references: [id])
+  credor         Credor?        @relation(fields: [credorId], references: [id])
+  contrato       Contrato?      @relation(fields: [contratoId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeGestoraId])
+  @@index([municipio])
+}
+
+//
+// 🏛️ EMENDAS PARLAMENTARES
+//
+
+model EmendaParlamentar {
+  id                Int      @id @default(autoincrement())
+
+  numeroEmpenho     String
+
+  tipo              String
+
+  descricao         String?
+
+  dataEmissao       DateTime?
+
+  valorEmpenhado    Decimal? @db.Decimal(14, 2)
+  valorLiquidado    Decimal? @db.Decimal(14, 2)
+  valorPago         Decimal? @db.Decimal(14, 2)
+
+  funcao            String?
+  subfuncao         String?
+  programa          String?
+  acao              String?
+  fonte             String?
+  naturezaDespesa   String?
+
+  processo          String?
+
+  categoria         String?
+
+  unidadeGestoraId  Int
+  credorId          Int?
+
+  unidadeGestora UnidadeGestora @relation(fields: [unidadeGestoraId], references: [id])
+  credor         Credor?        @relation(fields: [credorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeGestoraId])
+  @@index([dataEmissao])
+}
