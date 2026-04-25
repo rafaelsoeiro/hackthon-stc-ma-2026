@@ -32,7 +32,7 @@ export class BuscaDto {
   @IsString()
   @IsNotEmpty({ message: 'A pergunta não pode estar vazia.' })
   @MaxLength(500, { message: 'A pergunta deve ter no máximo 500 caracteres.' })
-  pergunta: string;
+  pergunta!: string;
 
   @ApiPropertyOptional({
     description: 'Assunto/categoria do tesauro para filtrar a busca',
