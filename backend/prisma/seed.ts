@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { seedBase } from './seeds/01-unidades';
 import { seedDespesas } from './seeds/02-despesas';
 import { seedReceitas } from './seeds/03-receitas';
@@ -10,6 +10,7 @@ import { seedServidoresRemuneracoes } from './seeds/06-servidores-remuneracoes';
 import { seedLicitacoes } from './seeds/07-licitacoes';
 import { seedObras } from './seeds/08-obras';
 import { seedEmendas } from './seeds/09-emendas';
+import { seedProgramasSociais } from './seeds/10-programas-sociais';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL nao definido no ambiente.');
@@ -19,6 +20,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 async function resetSeedTables(): Promise<void> {
+  await prisma.programaSocial.deleteMany();
   await prisma.obra.deleteMany();
   await prisma.remuneracao.deleteMany();
   await prisma.emendaParlamentar.deleteMany();
@@ -46,6 +48,7 @@ async function main(): Promise<void> {
   await seedContratos(prisma);
   await seedObras(prisma);
   await seedEmendas(prisma);
+  await seedProgramasSociais(prisma);
 
   const [
     unidades,
@@ -60,6 +63,7 @@ async function main(): Promise<void> {
     contratos,
     obras,
     emendas,
+    programasSociais,
   ] = await Promise.all([
     prisma.unidadeGestora.count(),
     prisma.credor.count(),
@@ -73,6 +77,7 @@ async function main(): Promise<void> {
     prisma.contrato.count(),
     prisma.obra.count(),
     prisma.emendaParlamentar.count(),
+    prisma.programaSocial.count(),
   ]);
 
   console.log('Seed concluido com sucesso.');
@@ -89,6 +94,7 @@ async function main(): Promise<void> {
     contratos,
     obras,
     emendas,
+    programasSociais,
   });
 }
 
