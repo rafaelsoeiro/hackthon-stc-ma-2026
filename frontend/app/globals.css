@@ -1,0 +1,74 @@
+@import 'tailwindcss';
+
+:root {
+  --tp-page: #f8fafc;
+  --tp-surface: #ffffff;
+  --tp-surface-2: #f1f5f9;
+  --tp-text-1: #0a1128;
+  --tp-text-2: #475569;
+  --tp-text-3: #64748b;
+  --tp-border: rgba(10, 17, 40, 0.1);
+  --tp-border-subtle: rgba(10, 17, 40, 0.06);
+  --tp-cta: #ffb800;
+  --tp-cta-fg: #0a1128;
+  --shadow-card: 0 10px 40px -10px rgba(10, 17, 40, 0.1);
+}
+
+.dark {
+  --tp-page: #070d1f;
+  --tp-surface: #0f1629;
+  --tp-surface-2: #162033;
+  --tp-text-1: #f1f5f9;
+  --tp-text-2: #cbd5e1;
+  --tp-text-3: #94a3b8;
+  --tp-border: rgba(255, 255, 255, 0.12);
+  --tp-border-subtle: rgba(255, 255, 255, 0.07);
+  --tp-cta: #ffb800;
+  --tp-cta-fg: #0a1128;
+  --shadow-card: 0 10px 36px -10px rgba(0, 0, 0, 0.5);
+}
+
+.high-contrast {
+  --tp-page: #000000;
+  --tp-surface: #0a0a0a;
+  --tp-surface-2: #111111;
+  --tp-text-1: #ffffff;
+  --tp-text-2: #ffffff;
+  --tp-text-3: #eeeeee;
+  --tp-border: #ffffff;
+  --tp-border-subtle: rgba(255, 255, 255, 0.8);
+  --tp-cta: #ffd700;
+  --tp-cta-fg: #000000;
+  --shadow-card: 0 0 0 2px #ffffff;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--tp-page);
+  --color-foreground: var(--tp-text-1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--tp-page);
+  color: var(--tp-text-1);
+}
+
+:focus-visible {
+  outline: 2px solid var(--tp-cta);
+  outline-offset: 2px;
+}
+
+.high-contrast :focus-visible {
+  outline: 3px solid #ffd700;
+}
