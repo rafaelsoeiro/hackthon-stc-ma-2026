@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Bar,
@@ -55,7 +55,10 @@ import {
   getReceitas,
   getServidores,
   getTransferencias,
+  getUnidadesGestoras,
+  type UnidadeGestoraSuggestion,
 } from '@/src/lib/api/public-data-client';
+import { generateTechnicalNarrative } from '@/src/lib/api/ai-client';
 
 interface TecnicoWizardProps {
   onNavigate: (page: string) => void;
@@ -72,6 +75,7 @@ type DataTypeId =
   | 'emendas';
 type DetailLevelId = 'resumido' | 'completo' | 'bruto';
 type ResumoChartKind = 'bar' | 'line' | 'pie';
+type AiNarrativeStatus = 'idle' | 'loading' | 'success' | 'error';
 
 type ReportRow = Record<string, string | number>;
 
@@ -128,22 +132,6 @@ function buildResumoChartInsight(
   return `O maior grupo no recorte resumido e "${top.name}", com ${top.value.toLocaleString('pt-BR')} registro(s), representando cerca de ${percent}% da amostra exibida.`;
 }
 
-function clampNarrativeLength(text: string): string {
-  let normalized = text.replace(/\s+/g, ' ').trim();
-  const filler =
-    ' Este texto e uma narrativa tecnica preliminar, mantida em modo demonstrativo, e sera substituida por explicacao dinamica com IA na etapa final do projeto.';
-
-  while (normalized.length < 500) {
-    normalized += filler;
-  }
-
-  if (normalized.length > 800) {
-    normalized = `${normalized.slice(0, 797).trimEnd()}...`;
-  }
-
-  return normalized;
-}
-
 function renderNarrativeWithBold(text: string) {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) {
@@ -151,38 +139,6 @@ function renderNarrativeWithBold(text: string) {
     }
     return <span key={`narrative-part-${index}`}>{part}</span>;
   });
-}
-
-function buildResumoNarrative(
-  dataType: DataTypeId | '',
-  report: ReportData,
-  chartData: Array<{ name: string; value: number }>,
-): string {
-  const top = chartData[0];
-  const topName = top?.name ?? 'N/D';
-  const topValue = top?.value ?? 0;
-  const totalRows = report.rows.length;
-  const totalLabel = report.total.toLocaleString('pt-BR');
-  const sampledLabel = totalRows.toLocaleString('pt-BR');
-  const pct = totalRows > 0 ? Math.round((topValue / totalRows) * 100) : 0;
-
-  const narrativeByType: Record<DataTypeId, string> = {
-    despesas: `A leitura resumida de despesas mostra um panorama inicial da distribuicao por orgao e programa, com foco no comportamento agregado do gasto. No recorte atual, o grupo **"${topName}"** concentra **${topValue.toLocaleString('pt-BR')} registros**, equivalente a aproximadamente **${pct}% da amostra exibida** (${sampledLabel} linhas de um total de ${totalLabel} registros encontrados). Esse resultado sugere maior incidencia operacional nesse eixo e ajuda a direcionar uma auditoria progressiva: primeiro em tendencia geral, depois em contratos, empenhos e unidades vinculadas. Como este texto ainda esta em modo mockado, ele serve para ilustrar o formato de explicacao executiva que sera automatizado posteriormente por IA, mantendo linguagem clara para usuarios tecnicos e nao tecnicos.`,
-    receitas: `No resumo de receitas, o grafico prioriza a leitura de evolucao entre grupos para indicar estabilidade, crescimento ou queda relativa no periodo selecionado. O ponto de maior destaque foi **"${topName}"**, com **${topValue.toLocaleString('pt-BR')} ocorrencias** na amostra, representando cerca de **${pct}%** das ${sampledLabel} linhas retornadas nesta visualizacao resumida, dentro de ${totalLabel} registros totais encontrados. Essa perspectiva permite avaliar concentracao arrecadatoria e dependencia de determinadas rubricas antes de aprofundar no detalhamento completo. O texto permanece propositalmente mockado para validar UX e narrativa analitica; na proxima etapa sera substituido por interpretacao dinamica com IA, preservando coerencia metodologica e contexto fiscal.`,
-    contratos: `Para contratos, o resumo enfatiza composicao por categorias relevantes de monitoramento, facilitando entendimento rapido de onde esta a maior massa de registros. Neste resultado, **"${topName}"** aparece como principal grupo com **${topValue.toLocaleString('pt-BR')} itens**, cerca de **${pct}% da amostra exibida** (${sampledLabel} linhas), considerando ${totalLabel} ocorrencias localizadas na consulta. O objetivo e orientar triagem inicial para analistas, controle interno e equipes de gestao, sinalizando pontos que merecem verificacao em modalidade, vigencia, fornecedor e status de execucao. Esta explicacao ainda e mockada, porem ja reproduz o padrao textual final esperado: objetiva, contextual e conectada ao grafico para reduzir ambiguidade na interpretacao dos dados.`,
-    servidores: `No tema de servidores, a visualizacao resumida organiza os registros por agrupamentos que facilitam leitura de concentracao funcional e distribuicao de ocorrencias. O grupo mais recorrente foi **"${topName}"**, totalizando **${topValue.toLocaleString('pt-BR')} entradas**, o que corresponde a aproximadamente **${pct}% da amostra apresentada** (${sampledLabel} linhas em tela), dentro de ${totalLabel} resultados recuperados pela busca. Essa camada resumida nao substitui a analise de remuneracao individual, mas ajuda a definir prioridade investigativa por cargo, orgao e perfil de lotacao antes de abrir o nivel completo ou bruto. O paragrafo esta em formato mockado para validar experiencia do usuario e estrutura de comunicacao que sera automatizada por IA em versoes seguintes.`,
-    obras: `Em obras publicas, a leitura resumida foi desenhada para destacar composicao geral dos registros por grupos de acompanhamento, oferecendo visao imediata sobre onde se concentra maior volume no recorte selecionado. No cenario atual, **"${topName}"** lidera com **${topValue.toLocaleString('pt-BR')} ocorrencias**, cerca de **${pct}%** das ${sampledLabel} linhas apresentadas, a partir de ${totalLabel} registros totais localizados. Esse retrato inicial apoia priorizacao de monitoramento sobre status, execucao percentual, municipio e investimento associado, sem exigir mergulho imediato em todas as colunas detalhadas. O texto segue em modo mockado de forma intencional, apenas para validar formato e densidade da interpretacao; depois sera substituido por narrativa automatica via IA com contexto dinâmico.`,
-    programas: `No bloco de programas sociais, a visao resumida procura evidenciar a distribuicao dos registros por agrupamentos de maior impacto, permitindo identificar rapidamente foco de execucao. O grupo **"${topName}"** aparece como principal neste recorte, com **${topValue.toLocaleString('pt-BR')} registros**, representando aproximadamente **${pct}% da amostra exibida** (${sampledLabel} linhas), dentro de ${totalLabel} resultados encontrados na consulta. Essa perspectiva ajuda a orientar analise de investimento, capilaridade e status de implementacao antes da abertura de dados completos e campos tecnicos. A narrativa exibida ainda e mockada e existe para validar comunicacao entre grafico e tabela; na etapa seguinte, esse texto sera substituido por explicacao inteligente contextualizada por IA.`,
-    transferencias: `Para transferencias, a leitura resumida usa comportamento por grupo para facilitar avaliacao do fluxo no periodo, ajudando a detectar concentracoes e variacoes relevantes de execucao. Neste retorno, **"${topName}"** ocupa a maior posicao com **${topValue.toLocaleString('pt-BR')} registros**, aproximadamente **${pct}% da amostra mostrada** (${sampledLabel} linhas), considerando ${totalLabel} resultados totais para os filtros aplicados. Com essa camada, o usuario consegue priorizar analise posterior em tipo de transferencia, programa associado, orgao responsavel e desempenho financeiro, reduzindo custo de exploracao inicial. O texto permanece mockado por enquanto, servindo como prototipo de narrativa analitica; em breve sera substituido por uma versao gerada por IA com maior personalizacao.`,
-    emendas: `No tema de emendas, o resumo foi estruturado para mostrar de forma objetiva a distribuicao dos registros e indicar onde se concentra o maior volume de ocorrencias no recorte consultado. O grupo **"${topName}"** lidera com **${topValue.toLocaleString('pt-BR')} entradas**, equivalentes a cerca de **${pct}%** das ${sampledLabel} linhas exibidas nesta etapa, dentro de ${totalLabel} resultados totais retornados. Essa leitura inicial apoia triagem de prioridade para analise de empenho, liquidacao e pagamento por orgao e programa, antes de aprofundar no modo completo ou bruto. O conteudo desta explicacao ainda e mockado para validar densidade textual e usabilidade, e sera evoluido para uma narrativa automatizada por IA aderente ao contexto real da consulta.`,
-  };
-
-  const defaultNarrative =
-    'Nao foi possivel classificar automaticamente o tema do relatorio. Ainda assim, a visualizacao resumida preserva a funcao de leitura inicial da distribuicao, com foco em entendimento rapido do recorte e preparacao para analise detalhada nas proximas etapas.';
-
-  return clampNarrativeLength(
-    dataType ? narrativeByType[dataType] : defaultNarrative,
-  );
 }
 
 const DATA_TYPES: Array<{
@@ -355,8 +311,22 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
   const [genProgress, setGenProgress] = useState(0);
   const [isGenerated, setIsGenerated] = useState(false);
   const [municipio, setMunicipio] = useState('');
+  const [selectedUnidadeGestora, setSelectedUnidadeGestora] = useState<{
+    id: number;
+    label: string;
+  } | null>(null);
+  const [ugSuggestions, setUgSuggestions] = useState<UnidadeGestoraSuggestion[]>(
+    [],
+  );
+  const [isLoadingUgSuggestions, setIsLoadingUgSuggestions] = useState(false);
+  const [ugSuggestionsError, setUgSuggestionsError] = useState<string | null>(
+    null,
+  );
   const [report, setReport] = useState<ReportData | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [aiResumoNarrative, setAiResumoNarrative] = useState<string | null>(null);
+  const [aiResumoNarrativeStatus, setAiResumoNarrativeStatus] =
+    useState<AiNarrativeStatus>('idle');
 
   const [sel, setSel] = useState({
     dataType: '' as DataTypeId | '',
@@ -389,18 +359,90 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         : '',
     [report, resumoChartData, sel.detailLevel],
   );
-  const resumoNarrative = useMemo(
-    () =>
-      report && sel.detailLevel === 'resumido'
-        ? buildResumoNarrative(sel.dataType, report, resumoChartData)
-        : '',
-    [report, resumoChartData, sel.dataType, sel.detailLevel],
-  );
   const resumoChartKind = useMemo(() => getResumoChartKind(sel.dataType), [sel.dataType]);
   const resumoChartTitle = useMemo(
     () => getResumoChartTitle(sel.dataType, resumoChartKind),
     [sel.dataType, resumoChartKind],
   );
+  const resumoNarrativeText = aiResumoNarrative || '';
+
+  useEffect(() => {
+    if (!report || sel.detailLevel !== 'resumido') return;
+
+    let active = true;
+    const topGroup = resumoChartData[0];
+
+    void generateTechnicalNarrative(
+      {
+        dataTypeLabel: dt?.label ?? report.title,
+        periodLabel: period?.label ?? 'Nao informado',
+        regionLabel: region?.label ?? 'Nao informado',
+        total: report.total,
+        totals: report.totals,
+        topGroupName: topGroup?.name,
+        topGroupValue: topGroup?.value,
+        sampleSize: report.rows.length,
+      },
+      sel.dataType,
+    )
+      .then((narrative) => {
+        if (!active) return;
+        setAiResumoNarrative(narrative);
+        setAiResumoNarrativeStatus('success');
+      })
+      .catch(() => {
+        if (!active) return;
+        setAiResumoNarrative(null);
+        setAiResumoNarrativeStatus('error');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    dt?.label,
+    period?.label,
+    region?.label,
+    report,
+    resumoChartData,
+    sel.dataType,
+    sel.detailLevel,
+  ]);
+
+  useEffect(() => {
+    if (sel.region !== 'municipio') return;
+
+    let active = true;
+    const search = municipio.trim();
+    const timeout = setTimeout(() => {
+      setIsLoadingUgSuggestions(true);
+      setUgSuggestionsError(null);
+
+      void getUnidadesGestoras({
+        q: search.length > 0 ? search : undefined,
+        limit: 12,
+      })
+        .then((response) => {
+          if (!active) return;
+          setUgSuggestions(response.items);
+        })
+        .catch(() => {
+          if (!active) return;
+          setUgSuggestions([]);
+          setUgSuggestionsError('Nao foi possivel carregar a lista de UGs.');
+        })
+        .finally(() => {
+          if (!active) return;
+          setIsLoadingUgSuggestions(false);
+        });
+    }, 220);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [municipio, sel.region]);
+
   const canAdvance = () => {
     if (step === 0) return !!sel.dataType;
     if (step === 1) {
@@ -417,6 +459,21 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
     return false;
   };
 
+  const showNoUgCompatibility =
+    sel.region === 'municipio' &&
+    municipio.trim().length >= 2 &&
+    !isLoadingUgSuggestions &&
+    !ugSuggestionsError &&
+    ugSuggestions.length === 0;
+
+  const selectUnidadeGestoraSuggestion = (item: UnidadeGestoraSuggestion) => {
+    const label = item.sigla
+      ? `${item.sigla} - ${item.nome}`
+      : `${item.codigo} - ${item.nome}`;
+    setMunicipio(label);
+    setSelectedUnidadeGestora({ id: item.id, label });
+  };
+
   const buildQueryText = (): string | undefined => {
     if (sel.region === 'municipio' && municipio.trim()) return municipio.trim();
     if (sel.region === 'macro' && sel.subRegion) {
@@ -426,10 +483,10 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
     return undefined;
   };
 
-  const queryForDataType = (dataType: DataTypeId): string | undefined => {
+  const queryForDataType = (): string | undefined => {
     const regionQuery = buildQueryText();
     if (!regionQuery) return undefined;
-    return dataType === 'obras' ? regionQuery : undefined;
+    return regionQuery;
   };
 
   const fetchReport = async (): Promise<ReportData> => {
@@ -445,13 +502,14 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
     const ano = sel.period === 'personalizado' && sel.periodStart
       ? new Date(sel.periodStart).getFullYear()
       : yearFromPeriod(sel.period);
-    const q = queryForDataType(selectedDataType);
+    const q = queryForDataType();
+    const unidadeGestoraId = selectedUnidadeGestora?.id;
     const generatedAt = new Date().toLocaleString('pt-BR');
 
     switch (selectedDataType) {
       case 'despesas': {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
-          getDespesas({ ano, q: queryText, page, pageSize }),
+          getDespesas({ ano, q: queryText, unidadeGestoraId, page, pageSize }),
         );
         const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
           resumido: items.map((item) => ({
@@ -507,7 +565,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
       }
       case 'receitas': {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
-          getReceitas({ ano, q: queryText, page, pageSize }),
+          getReceitas({ ano, q: queryText, unidadeGestoraId, page, pageSize }),
         );
         const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
           resumido: items.map((item) => ({
@@ -564,6 +622,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
             q: queryText,
             ano,
             tipo: 'Todos',
+            unidadeGestoraId,
             page,
             pageSize,
           }),
@@ -624,7 +683,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
       }
       case 'servidores': {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
-          getServidores({ ano, q: queryText, page, pageSize }),
+          getServidores({ ano, q: queryText, unidadeGestoraId, page, pageSize }),
         );
         const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
           resumido: items.map((item) => ({
@@ -681,6 +740,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
           getObras({
             q: queryText,
             status: 'todas',
+            unidadeGestoraId,
             page,
             pageSize,
           }),
@@ -737,7 +797,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
       }
       case 'programas': {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
-          getProgramas({ q: queryText, page, pageSize }),
+          getProgramas({ q: queryText, unidadeGestoraId, page, pageSize }),
         );
         const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
           resumido: items.map((item) => ({
@@ -789,7 +849,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
       }
       case 'transferencias': {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
-          getTransferencias({ ano, q: queryText, page, pageSize }),
+          getTransferencias({ ano, q: queryText, unidadeGestoraId, page, pageSize }),
         );
         const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
           resumido: items.map((item) => ({
@@ -846,7 +906,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
       }
       case 'emendas': {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
-          getEmendas({ ano, q: queryText, page, pageSize }),
+          getEmendas({ ano, q: queryText, unidadeGestoraId, page, pageSize }),
         );
         const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
           resumido: items.map((item) => ({
@@ -906,6 +966,10 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
   const startGenerate = async () => {
     try {
       setGenerateError(null);
+      setAiResumoNarrative(null);
+      setAiResumoNarrativeStatus(
+        sel.detailLevel === 'resumido' ? 'loading' : 'idle',
+      );
       setIsGenerating(true);
       setGenProgress(15);
       await new Promise((resolve) => setTimeout(resolve, 180));
@@ -943,10 +1007,16 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
   const reset = () => {
     setSel({ dataType: '', period: '', periodStart: '', periodEnd: '', region: '', subRegion: '', detailLevel: '' });
     setMunicipio('');
+    setSelectedUnidadeGestora(null);
+    setUgSuggestions([]);
+    setIsLoadingUgSuggestions(false);
+    setUgSuggestionsError(null);
     setStep(0);
     setIsGenerated(false);
     setIsGenerating(false);
     setReport(null);
+    setAiResumoNarrative(null);
+    setAiResumoNarrativeStatus('idle');
     setGenerateError(null);
     setGenProgress(0);
   };
@@ -960,6 +1030,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         region: sel.region,
         subRegion: sel.subRegion,
         municipio,
+        unidadeGestoraId: selectedUnidadeGestora?.id,
         detailLevel: sel.detailLevel,
       },
       report,
@@ -992,6 +1063,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
       regiao: sel.region,
       sub: sel.subRegion,
       municipio,
+      unidadeGestoraId: String(selectedUnidadeGestora?.id ?? ''),
       detalhe: sel.detailLevel,
     });
 
@@ -1146,11 +1218,25 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
 
             {sel.detailLevel === 'resumido' && (
               <div className="rounded-[16px] p-4 mb-6" style={{ backgroundColor: 'var(--tp-surface)', border: '1px solid var(--tp-border-subtle)' }}>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--tp-text-2)' }}>
-                  <span style={{ display: 'block', textAlign: 'justify' }}>
-                    {renderNarrativeWithBold(resumoNarrative || resumoChartInsight)}
-                  </span>
-                </p>
+                {aiResumoNarrativeStatus === 'loading' ? (
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-3 rounded-full" style={{ backgroundColor: 'var(--tp-surface-2)' }} />
+                    <div className="h-3 rounded-full" style={{ backgroundColor: 'var(--tp-surface-2)' }} />
+                    <div className="h-3 w-11/12 rounded-full" style={{ backgroundColor: 'var(--tp-surface-2)' }} />
+                    <div className="h-3 w-10/12 rounded-full" style={{ backgroundColor: 'var(--tp-surface-2)' }} />
+                    <div className="h-3 w-9/12 rounded-full" style={{ backgroundColor: 'var(--tp-surface-2)' }} />
+                  </div>
+                ) : aiResumoNarrativeStatus === 'success' && resumoNarrativeText ? (
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--tp-text-2)' }}>
+                    <span style={{ display: 'block', textAlign: 'justify' }}>
+                      {renderNarrativeWithBold(resumoNarrativeText)}
+                    </span>
+                  </p>
+                ) : aiResumoNarrativeStatus === 'error' ? (
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--tp-text-3)' }}>
+                    {resumoChartInsight}
+                  </p>
+                ) : null}
               </div>
             )}
 
@@ -1349,7 +1435,22 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
                       const Icon = item.icon;
                       const selected = sel.region === item.id;
                       return (
-                        <button key={item.id} onClick={() => setSel((current) => ({ ...current, region: item.id, subRegion: '' }))} className="rounded-[16px] p-4 text-left" style={{ backgroundColor: selected ? `${item.color}12` : 'var(--tp-surface)', border: selected ? `2px solid ${item.color}` : '2px solid var(--tp-border-subtle)' }}>
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setSel((current) => ({
+                              ...current,
+                              region: item.id,
+                              subRegion: '',
+                            }));
+                            if (item.id !== 'municipio') {
+                              setMunicipio('');
+                              setSelectedUnidadeGestora(null);
+                            }
+                          }}
+                          className="rounded-[16px] p-4 text-left"
+                          style={{ backgroundColor: selected ? `${item.color}12` : 'var(--tp-surface)', border: selected ? `2px solid ${item.color}` : '2px solid var(--tp-border-subtle)' }}
+                        >
                           <Icon className="size-5 mb-2" style={{ color: item.color }} />
                           <div className="text-sm" style={{ color: 'var(--tp-text-1)', fontWeight: 600 }}>{item.label}</div>
                           <div className="text-xs" style={{ color: 'var(--tp-text-3)' }}>{item.sub}</div>
@@ -1369,8 +1470,89 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
                   )}
 
                   {sel.region === 'municipio' && (
-                    <div className="rounded-[16px] p-4" style={{ backgroundColor: 'var(--tp-surface)', border: '1px solid var(--tp-border-subtle)' }}>
-                      <input value={municipio} onChange={(event) => setMunicipio(event.target.value)} placeholder="Digite o município" className="w-full rounded-xl px-3 py-2.5 text-sm" style={{ backgroundColor: 'var(--tp-page)', border: '1px solid var(--tp-border)', color: 'var(--tp-text-1)' }} />
+                    <div
+                      className="rounded-[16px] p-4 space-y-2"
+                      style={{
+                        backgroundColor: 'var(--tp-surface)',
+                        border: '1px solid var(--tp-border-subtle)',
+                      }}
+                    >
+                      <input
+                        value={municipio}
+                        onChange={(event) => {
+                          setMunicipio(event.target.value);
+                          setSelectedUnidadeGestora(null);
+                        }}
+                        placeholder="Digite município ou UG"
+                        className="w-full rounded-xl px-3 py-2.5 text-sm"
+                        style={{
+                          backgroundColor: 'var(--tp-page)',
+                          border: '1px solid var(--tp-border)',
+                          color: 'var(--tp-text-1)',
+                        }}
+                      />
+                      <p
+                        className="text-xs"
+                        style={{ color: 'var(--tp-text-3)' }}
+                      >
+                        Sugestoes de UGs cadastradas no banco. Selecione uma
+                        opcao para filtrar por unidade gestora.
+                      </p>
+                      {isLoadingUgSuggestions ? (
+                        <p className="text-xs" style={{ color: 'var(--tp-text-3)' }}>
+                          Buscando sugestoes...
+                        </p>
+                      ) : ugSuggestionsError ? (
+                        <p className="text-xs" style={{ color: '#DC2626' }}>
+                          {ugSuggestionsError}
+                        </p>
+                      ) : showNoUgCompatibility ? (
+                        <p className="text-xs" style={{ color: '#DC2626' }}>
+                          Nenhuma compatibilidade encontrada para o termo
+                          informado.
+                        </p>
+                      ) : ugSuggestions.length > 0 ? (
+                        <div
+                          className="max-h-40 overflow-auto rounded-xl"
+                          style={{
+                            border: '1px solid var(--tp-border-subtle)',
+                            backgroundColor: 'var(--tp-page)',
+                          }}
+                        >
+                          {ugSuggestions.map((item) => {
+                            const label = item.sigla
+                              ? `${item.sigla} - ${item.nome}`
+                              : `${item.codigo} - ${item.nome}`;
+                            const selected =
+                              selectedUnidadeGestora?.id === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() =>
+                                  selectUnidadeGestoraSuggestion(item)
+                                }
+                                className="w-full px-3 py-2 text-left text-sm"
+                                style={{
+                                  color: 'var(--tp-text-1)',
+                                  backgroundColor: selected
+                                    ? 'rgba(16,185,129,.12)'
+                                    : 'transparent',
+                                  borderBottom:
+                                    '1px solid var(--tp-border-subtle)',
+                                }}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      {selectedUnidadeGestora && (
+                        <p className="text-xs" style={{ color: '#10B981' }}>
+                          UG selecionada: {selectedUnidadeGestora.label}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

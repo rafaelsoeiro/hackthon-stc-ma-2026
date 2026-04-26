@@ -18,6 +18,9 @@ export class ObrasService {
     );
 
     const where = {
+      ...(query.unidadeGestoraId
+        ? { unidadeGestoraId: query.unidadeGestoraId }
+        : {}),
       ...(query.status && query.status !== 'todas'
         ? { status: query.status }
         : {}),

@@ -17,6 +17,8 @@ import { ProgramasController } from './programas.controller';
 import { ProgramasService } from './programas.service';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
+import { UnidadesGestorasController } from './unidades-gestoras.controller';
+import { UnidadesGestorasService } from './unidades-gestoras.service';
 
 @Module({
   controllers: [
@@ -29,6 +31,7 @@ import { AnalyticsService } from './analytics.service';
     EmendasController,
     ProgramasController,
     AnalyticsController,
+    UnidadesGestorasController,
   ],
   providers: [
     ObrasService,
@@ -40,6 +43,7 @@ import { AnalyticsService } from './analytics.service';
     EmendasService,
     ProgramasService,
     AnalyticsService,
+    UnidadesGestorasService,
   ],
 })
 export class PublicDataModule {}

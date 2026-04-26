@@ -7,6 +7,22 @@ type Meta = {
   totalPages: number;
 };
 
+export type UnidadeGestoraSuggestion = {
+  id: number;
+  codigo: string;
+  nome: string;
+  sigla: string | null;
+};
+
+export type UnidadesGestorasResponse = {
+  items: UnidadeGestoraSuggestion[];
+  meta: {
+    total: number;
+    limit: number;
+    query: string;
+  };
+};
+
 export type ObrasItem = {
   id: number;
   descricao: string;
@@ -266,6 +282,7 @@ export type EmendasListResponse = {
 export async function getObras(params?: {
   q?: string;
   status?: string;
+  unidadeGestoraId?: number;
   page?: number;
   pageSize?: number;
 }) {
@@ -273,6 +290,8 @@ export async function getObras(params?: {
 
   if (params?.q) search.set('q', params.q);
   if (params?.status) search.set('status', params.status);
+  if (params?.unidadeGestoraId)
+    search.set('unidadeGestoraId', String(params.unidadeGestoraId));
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));
 
@@ -287,12 +306,15 @@ export async function getObrasSummary() {
 export async function getDespesas(params?: {
   q?: string;
   ano?: number;
+  unidadeGestoraId?: number;
   page?: number;
   pageSize?: number;
 }) {
   const search = new URLSearchParams();
   if (params?.q) search.set('q', params.q);
   if (params?.ano) search.set('ano', String(params.ano));
+  if (params?.unidadeGestoraId)
+    search.set('unidadeGestoraId', String(params.unidadeGestoraId));
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));
 
@@ -303,12 +325,15 @@ export async function getDespesas(params?: {
 export async function getReceitas(params?: {
   q?: string;
   ano?: number;
+  unidadeGestoraId?: number;
   page?: number;
   pageSize?: number;
 }) {
   const search = new URLSearchParams();
   if (params?.q) search.set('q', params.q);
   if (params?.ano) search.set('ano', String(params.ano));
+  if (params?.unidadeGestoraId)
+    search.set('unidadeGestoraId', String(params.unidadeGestoraId));
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));
 
@@ -319,6 +344,7 @@ export async function getReceitas(params?: {
 export async function getContratos(params?: {
   q?: string;
   tipo?: string;
+  unidadeGestoraId?: number;
   page?: number;
   pageSize?: number;
 }) {
@@ -326,6 +352,8 @@ export async function getContratos(params?: {
 
   if (params?.q) search.set('q', params.q);
   if (params?.tipo) search.set('tipo', params.tipo);
+  if (params?.unidadeGestoraId)
+    search.set('unidadeGestoraId', String(params.unidadeGestoraId));
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));
 
@@ -343,6 +371,7 @@ export async function getContratosGuidedSearch(params?: {
   tipo?: string;
   valorMax?: number;
   ano?: number;
+  unidadeGestoraId?: number;
   page?: number;
   pageSize?: number;
 }) {
@@ -353,6 +382,8 @@ export async function getContratosGuidedSearch(params?: {
   if (params?.tipo) search.set('tipo', params.tipo);
   if (params?.valorMax !== undefined) search.set('valorMax', String(params.valorMax));
   if (params?.ano) search.set('ano', String(params.ano));
+  if (params?.unidadeGestoraId)
+    search.set('unidadeGestoraId', String(params.unidadeGestoraId));
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));
 
@@ -405,12 +436,15 @@ export async function getAnalyticsSummary(params: {
 export async function getProgramas(params?: {
   q?: string;
   origem?: string;
+  unidadeGestoraId?: number;
   page?: number;
   pageSize?: number;
 }) {
   const search = new URLSearchParams();
   if (params?.q) search.set('q', params.q);
   if (params?.origem) search.set('origem', params.origem);
+  if (params?.unidadeGestoraId)
+    search.set('unidadeGestoraId', String(params.unidadeGestoraId));
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));
 
@@ -421,12 +455,15 @@ export async function getProgramas(params?: {
 export async function getServidores(params?: {
   q?: string;
   ano?: number;
+  unidadeGestoraId?: number;
   page?: number;
   pageSize?: number;
 }) {
   const search = new URLSearchParams();
   if (params?.q) search.set('q', params.q);
   if (params?.ano) search.set('ano', String(params.ano));
+  if (params?.unidadeGestoraId)
+    search.set('unidadeGestoraId', String(params.unidadeGestoraId));
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));
 
@@ -437,12 +474,15 @@ export async function getServidores(params?: {
 export async function getTransferencias(params?: {
   q?: string;
   ano?: number;
+  unidadeGestoraId?: number;
   page?: number;
   pageSize?: number;
 }) {
   const search = new URLSearchParams();
   if (params?.q) search.set('q', params.q);
   if (params?.ano) search.set('ano', String(params.ano));
+  if (params?.unidadeGestoraId)
+    search.set('unidadeGestoraId', String(params.unidadeGestoraId));
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));
 
@@ -453,12 +493,15 @@ export async function getTransferencias(params?: {
 export async function getEmendas(params?: {
   q?: string;
   ano?: number;
+  unidadeGestoraId?: number;
   page?: number;
   pageSize?: number;
 }) {
   const search = new URLSearchParams();
   if (params?.q) search.set('q', params.q);
   if (params?.ano) search.set('ano', String(params.ano));
+  if (params?.unidadeGestoraId)
+    search.set('unidadeGestoraId', String(params.unidadeGestoraId));
   if (params?.page) search.set('page', String(params.page));
   if (params?.pageSize) search.set('pageSize', String(params.pageSize));
 
@@ -473,4 +516,14 @@ export async function getProgramasSummary(params?: { q?: string; origem?: string
 
   const suffix = search.toString();
   return fetchJson<ProgramasSummaryResponse>(`/api/public/programas/summary${suffix ? `?${suffix}` : ''}`);
+}
+
+export async function getUnidadesGestoras(params?: { q?: string; limit?: number }) {
+  const search = new URLSearchParams();
+  if (params?.q) search.set('q', params.q);
+  if (params?.limit) search.set('limit', String(params.limit));
+  const suffix = search.toString();
+  return fetchJson<UnidadesGestorasResponse>(
+    `/api/public/unidades-gestoras${suffix ? `?${suffix}` : ''}`,
+  );
 }

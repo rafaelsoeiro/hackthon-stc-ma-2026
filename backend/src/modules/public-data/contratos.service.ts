@@ -19,6 +19,9 @@ export class ContratosService {
 
     const where = {
       ...(query.ano ? { ano: query.ano } : {}),
+      ...(query.unidadeGestoraId
+        ? { unidadeGestoraId: query.unidadeGestoraId }
+        : {}),
       ...(query.status
         ? { status: { equals: query.status, mode: 'insensitive' as const } }
         : {}),

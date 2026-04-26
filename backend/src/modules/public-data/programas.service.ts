@@ -39,6 +39,9 @@ export class ProgramasService {
                 },
               }
             : {}),
+          ...(query.unidadeGestoraId
+            ? { unidadeGestoraId: query.unidadeGestoraId }
+            : {}),
           ...(query.q
             ? { programa: { contains: query.q, mode: 'insensitive' as const } }
             : {}),
@@ -53,6 +56,9 @@ export class ProgramasService {
       this.prisma.transferencia.findMany({
         where: {
           ...(query.ano ? { ano: query.ano } : {}),
+          ...(query.unidadeGestoraId
+            ? { unidadeGestoraId: query.unidadeGestoraId }
+            : {}),
           ...(query.q
             ? { programa: { contains: query.q, mode: 'insensitive' as const } }
             : {}),
@@ -73,6 +79,9 @@ export class ProgramasService {
                   lte: new Date(`${query.ano}-12-31`),
                 },
               }
+            : {}),
+          ...(query.unidadeGestoraId
+            ? { unidadeGestoraId: query.unidadeGestoraId }
             : {}),
           ...(query.q
             ? { programa: { contains: query.q, mode: 'insensitive' as const } }
