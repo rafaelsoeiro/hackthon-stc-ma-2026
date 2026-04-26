@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TransparencyService } from './transparency/transparency.service';
 import { buildSystemPrompt } from './prompts/system.prompt';
@@ -50,14 +54,41 @@ Por favor, responda estritamente no formato JSON solicitado nas normas.
       const result = await model.generateContent(userPrompt);
       const responseText = result.response.text();
 
-      // 6. Retorna o JSON parseado
-      const parsedResponse: unknown = JSON.parse(responseText);
-      return parsedResponse;
+      // 6. Retorna o JSON parseado com tratamento robusto de formato
+      return this.parseModelJsonResponse(responseText);
     } catch (error) {
       console.error('Erro na chamada do Gemini:', error);
       throw new InternalServerErrorException(
         'Não foi possível gerar a resposta com a IA. Verifique sua chave de API.',
       );
     }
+  }
+
+  private parseModelJsonResponse(rawResponse: string): unknown {
+    const normalized = this.normalizeJsonCandidate(rawResponse);
+
+    try {
+      return JSON.parse(normalized);
+    } catch (error) {
+      console.error(
+        'Resposta da IA não veio em JSON válido:',
+        rawResponse,
+        error,
+      );
+      throw new BadGatewayException(
+        'A IA retornou uma resposta em formato inválido. Tente novamente em instantes.',
+      );
+    }
+  }
+
+  private normalizeJsonCandidate(rawResponse: string): string {
+    const trimmed = rawResponse.trim();
+    const codeFenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+
+    if (codeFenceMatch?.[1]) {
+      return codeFenceMatch[1].trim();
+    }
+
+    return trimmed;
   }
 }

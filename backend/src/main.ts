@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
 
   // Configuração Global de Validação
   app.useGlobalPipes(
@@ -16,7 +17,9 @@ async function bootstrap() {
   );
 
   // Configuração de CORS
-  app.enableCors();
+  app.enableCors({
+    origin: configService.get<string>('app.cors.origin') ?? '*',
+  });
 
   // Configuração de Swagger
   const config = new DocumentBuilder()
@@ -29,7 +32,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port') ?? 3000;
 
   await app.listen(port, () => {
