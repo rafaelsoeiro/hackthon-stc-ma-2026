@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
-import { PageSkeleton } from '@/src/components/shared/page-skeleton';
+import { TechnicalCatalogPanel } from '@/src/components/discovery';
+import { datasetEntries } from '@/src/mocks/discovery-data';
 
 export const metadata: Metadata = {
   title: 'Explorar Dados | Portal da Transparencia MA',
@@ -8,11 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function TecnicoPage() {
-  return (
-    <PageSkeleton
-      phase="Fase 2"
-      title="Explorar Dados"
-      description="Area tecnica para exploracao orientada de dados."
-    />
-  );
+  return <TechnicalCatalogPanel items={datasetEntries} />;
 }

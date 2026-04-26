@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { PageSkeleton } from '@/src/components/shared/page-skeleton';
+import { InstitutionalPanel } from '@/src/components/discovery';
 
 export const metadata: Metadata = {
   title: 'Institucional | Portal da Transparencia MA',
@@ -8,11 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function InstitucionalPage() {
-  return (
-    <PageSkeleton
-      phase="Fase 2"
-      title="Institucional"
-      description="Informacoes institucionais sobre o portal e o orgao responsavel."
-    />
-  );
+  return <InstitutionalPanel />;
 }

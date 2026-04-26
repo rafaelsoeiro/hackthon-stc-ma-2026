@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
-import { PageSkeleton } from '@/src/components/shared/page-skeleton';
+import { SearchResultsPanel } from '@/src/components/discovery';
+import { searchEntries } from '@/src/mocks/discovery-data';
 
 export const metadata: Metadata = {
   title: 'Busca | Portal da Transparencia MA',
@@ -14,17 +15,14 @@ type SearchPageProps = {
 export default async function BuscaPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
   const qParam = params.q;
-  const query = Array.isArray(qParam) ? qParam[0] : qParam;
+  const query = (Array.isArray(qParam) ? qParam[0] : qParam ?? '').trim();
 
-  return (
-    <PageSkeleton
-      phase="Fase 2"
-      title="Resultados da Busca"
-      description={
-        query
-          ? `Termo atual: "${query}". Esta rota ja esta preparada para URL state via searchParams.`
-          : 'Use o parametro ?q= para compartilhar pesquisas. Exemplo: /busca?q=contratos.'
-      }
-    />
-  );
+  const normalized = query.toLowerCase();
+  const filtered = normalized
+    ? searchEntries.filter((entry) =>
+        `${entry.title} ${entry.description} ${entry.tags.join(' ')}`.toLowerCase().includes(normalized),
+      )
+    : searchEntries;
+
+  return <SearchResultsPanel query={query || 'todos os temas'} entries={filtered} />;
 }
