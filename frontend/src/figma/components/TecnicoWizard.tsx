@@ -157,6 +157,7 @@ const MAX_WIZARD_PAGES = 200;
 type PagedResponse = {
   items: unknown[];
   meta: {
+    total: number;
     totalPages: number;
   };
 };
@@ -174,6 +175,35 @@ async function fetchAllPages<TResponse extends PagedResponse>(
   }
 
   return { first, items };
+}
+
+async function fetchAllPagesWithFallback<TResponse extends PagedResponse>(
+  fetchPage: (
+    queryText: string | undefined,
+    page: number,
+    pageSize: number,
+  ) => Promise<TResponse>,
+  queryText?: string,
+): Promise<{ first: TResponse; items: TResponse['items'] }> {
+  const candidates = queryText ? [queryText, undefined] : [undefined];
+  let lastResult: { first: TResponse; items: TResponse['items'] } | null = null;
+
+  for (const candidate of candidates) {
+    const result = await fetchAllPages((page, pageSize) =>
+      fetchPage(candidate, page, pageSize),
+    );
+    lastResult = result;
+
+    if (result.first.meta.total > 0 || candidate === undefined) {
+      return result;
+    }
+  }
+
+  if (!lastResult) {
+    throw new Error('Nao foi possivel carregar dados para o relatorio.');
+  }
+
+  return lastResult;
 }
 
 export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
@@ -212,20 +242,33 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
 
   const buildQueryText = (): string | undefined => {
     if (sel.region === 'municipio' && municipio.trim()) return municipio.trim();
-    if (sel.region === 'macro' && sel.subRegion) return sel.subRegion;
+    if (sel.region === 'macro' && sel.subRegion) {
+      return MACROS.find((macro) => macro.id === sel.subRegion)?.label;
+    }
     if (sel.region === 'capital') return 'São Luís';
     return undefined;
   };
 
+  const queryForDataType = (dataType: DataTypeId): string | undefined => {
+    const regionQuery = buildQueryText();
+    if (!regionQuery) return undefined;
+    return dataType === 'obras' ? regionQuery : undefined;
+  };
+
   const fetchReport = async (): Promise<ReportData> => {
+    if (!sel.dataType) {
+      throw new Error('Tipo de dado não selecionado.');
+    }
+
+    const selectedDataType = sel.dataType;
     const ano = yearFromPeriod(sel.period);
-    const q = buildQueryText();
+    const q = queryForDataType(selectedDataType);
     const generatedAt = new Date().toLocaleString('pt-BR');
 
-    switch (sel.dataType) {
+    switch (selectedDataType) {
       case 'despesas': {
-        const { first: response, items } = await fetchAllPages((page, pageSize) =>
-          getDespesas({ ano, q, page, pageSize }),
+        const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
+          getDespesas({ ano, q: queryText, page, pageSize }),
         );
         const rows = items.map((item) => ({
           Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
@@ -250,8 +293,8 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'receitas': {
-        const { first: response, items } = await fetchAllPages((page, pageSize) =>
-          getReceitas({ ano, q, page, pageSize }),
+        const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
+          getReceitas({ ano, q: queryText, page, pageSize }),
         );
         const rows = items.map((item) => ({
           Código: item.codigo ?? 'N/D',
@@ -275,9 +318,9 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'contratos': {
-        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+        const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
           getContratosGuidedSearch({
-            q,
+            q: queryText,
             ano,
             tipo: 'Todos',
             page,
@@ -307,8 +350,8 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'servidores': {
-        const { first: response, items } = await fetchAllPages((page, pageSize) =>
-          getServidores({ ano, q, page, pageSize }),
+        const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
+          getServidores({ ano, q: queryText, page, pageSize }),
         );
         const rows = items.map((item) => ({
           Nome: item.nome,
@@ -331,13 +374,14 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'obras': {
-        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+        const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
           getObras({
-            q,
+            q: queryText,
             status: 'todas',
             page,
             pageSize,
           }),
+          q,
         );
         const rows = items.map((item) => ({
           Obra: item.descricao,
@@ -362,8 +406,8 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'programas': {
-        const { first: response, items } = await fetchAllPages((page, pageSize) =>
-          getProgramas({ q, page, pageSize }),
+        const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
+          getProgramas({ q: queryText, page, pageSize }),
         );
         const rows = items.map((item) => ({
           Programa: item.nome,
@@ -386,8 +430,8 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'transferencias': {
-        const { first: response, items } = await fetchAllPages((page, pageSize) =>
-          getTransferencias({ ano, q, page, pageSize }),
+        const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
+          getTransferencias({ ano, q: queryText, page, pageSize }),
         );
         const rows = items.map((item) => ({
           Tipo: item.tipo,
@@ -412,8 +456,8 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'emendas': {
-        const { first: response, items } = await fetchAllPages((page, pageSize) =>
-          getEmendas({ ano, q, page, pageSize }),
+        const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
+          getEmendas({ ano, q: queryText, page, pageSize }),
         );
         const rows = items.map((item) => ({
           Empenho: item.numeroEmpenho,
