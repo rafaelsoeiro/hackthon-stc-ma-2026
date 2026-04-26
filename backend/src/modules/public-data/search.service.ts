@@ -523,7 +523,9 @@ export class SearchService {
     ];
 
     if (!rawTypes) {
-      return fallback && fallback.size > 0 ? new Set(fallback) : new Set(allTypes);
+      return fallback && fallback.size > 0
+        ? new Set(fallback)
+        : new Set(allTypes);
     }
 
     const selected = rawTypes
@@ -543,13 +545,37 @@ export class SearchService {
 
     const aliases: Array<{ type: SearchType; terms: string[] }> = [
       { type: 'despesas', terms: ['despesa', 'despesas', 'gasto', 'gastos'] },
-      { type: 'receitas', terms: ['receita', 'receitas', 'arrecadacao', 'arrecadacoes'] },
+      {
+        type: 'receitas',
+        terms: ['receita', 'receitas', 'arrecadacao', 'arrecadacoes'],
+      },
       { type: 'obras', terms: ['obra', 'obras'] },
-      { type: 'contratos', terms: ['contrato', 'contratos', 'licitacao', 'licitacoes'] },
-      { type: 'servidores', terms: ['servidor', 'servidores', 'folha', 'remuneracao', 'remuneracoes'] },
-      { type: 'programas', terms: ['programa', 'programas', 'social', 'sociais'] },
-      { type: 'transferencias', terms: ['transferencia', 'transferencias', 'repasse', 'repasses'] },
-      { type: 'emendas', terms: ['emenda', 'emendas', 'parlamentar', 'parlamentares'] },
+      {
+        type: 'contratos',
+        terms: ['contrato', 'contratos', 'licitacao', 'licitacoes'],
+      },
+      {
+        type: 'servidores',
+        terms: [
+          'servidor',
+          'servidores',
+          'folha',
+          'remuneracao',
+          'remuneracoes',
+        ],
+      },
+      {
+        type: 'programas',
+        terms: ['programa', 'programas', 'social', 'sociais'],
+      },
+      {
+        type: 'transferencias',
+        terms: ['transferencia', 'transferencias', 'repasse', 'repasses'],
+      },
+      {
+        type: 'emendas',
+        terms: ['emenda', 'emendas', 'parlamentar', 'parlamentares'],
+      },
     ];
 
     const hinted = aliases
@@ -573,8 +599,7 @@ export class SearchService {
     };
 
     if (!q) return base;
-    const tokens = this
-      .normalize(q)
+    const tokens = this.normalize(q)
       .split(/\s+/)
       .filter((token) => token.length >= 2);
 

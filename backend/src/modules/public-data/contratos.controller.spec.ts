@@ -66,7 +66,10 @@ describe('ContratosController', () => {
 
   it('executa guided search com os filtros recebidos', async () => {
     const query = { area: 'Saude', valorMin: 1000, valorMax: 50000 };
-    const response = { items: [], meta: { page: 1, pageSize: 20, total: 0, totalPages: 1 } };
+    const response = {
+      items: [],
+      meta: { page: 1, pageSize: 20, total: 0, totalPages: 1 },
+    };
     service.guidedSearch.mockResolvedValue(response);
 
     await expect(controller.guidedSearch(query)).resolves.toEqual(response);

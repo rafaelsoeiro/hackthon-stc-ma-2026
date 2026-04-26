@@ -165,7 +165,8 @@ export class ProgramasService {
     const start = (page - 1) * pageSize;
     const items = derived.slice(start, start + pageSize).map((p, idx) => {
       const catalogItem = catalogoMap.get(this.normalizeKey(p.nome));
-      const secretariaDerivada = Array.from(p.secretarias)[0] ?? 'Nao informado';
+      const secretariaDerivada =
+        Array.from(p.secretarias)[0] ?? 'Nao informado';
       return {
         id: `${p.nome.toLowerCase().replace(/\s+/g, '-')}-${idx}`,
         nome: p.nome,
