@@ -116,8 +116,11 @@ export class SearchService {
   async search(query: SearchQueryDto) {
     const { page, pageSize } = getPagination(query.page, query.pageSize);
     const normalizedQ = (query.q ?? '').trim();
-
-    const selectedTypes = this.parseTypes(query.types);
+    const hintedTypes = this.resolveHintedTypes(normalizedQ);
+    const selectedTypes = this.parseTypes(
+      query.types,
+      hintedTypes.size > 0 ? hintedTypes : undefined,
+    );
     const requiresProgramInputs = selectedTypes.has('programas');
     const rawLimit = Math.min(pageSize * 3, 100);
 
@@ -125,9 +128,10 @@ export class SearchService {
       if (!(selectedTypes.has('despesas') || requiresProgramInputs)) {
         return Promise.resolve([]);
       }
+      const effectiveQ = hintedTypes.has('despesas') ? '' : normalizedQ;
       return this.prisma.despesa.findMany({
         where: this.buildTextWhere(
-          normalizedQ,
+          effectiveQ,
           [{ descricao: true }, { codigoEmpenho: true }],
           query.ano
             ? {
@@ -155,9 +159,10 @@ export class SearchService {
 
     const loadReceitas = (): Promise<ReceitaSearchRow[]> => {
       if (!selectedTypes.has('receitas')) return Promise.resolve([]);
+      const effectiveQ = hintedTypes.has('receitas') ? '' : normalizedQ;
       return this.prisma.receita.findMany({
         where: this.buildTextWhere(
-          normalizedQ,
+          effectiveQ,
           [{ descricao: true }, { codigo: true }],
           query.ano ? { ano: query.ano } : undefined,
         ),
@@ -175,9 +180,10 @@ export class SearchService {
 
     const loadObras = (): Promise<ObraSearchRow[]> => {
       if (!selectedTypes.has('obras')) return Promise.resolve([]);
+      const effectiveQ = hintedTypes.has('obras') ? '' : normalizedQ;
       return this.prisma.obra.findMany({
         where: this.buildTextWhere(
-          normalizedQ,
+          effectiveQ,
           [{ descricao: true }, { municipio: true }],
           query.municipio
             ? {
@@ -203,9 +209,10 @@ export class SearchService {
 
     const loadContratos = (): Promise<ContratoSearchRow[]> => {
       if (!selectedTypes.has('contratos')) return Promise.resolve([]);
+      const effectiveQ = hintedTypes.has('contratos') ? '' : normalizedQ;
       return this.prisma.contrato.findMany({
         where: this.buildTextWhere(
-          normalizedQ,
+          effectiveQ,
           [{ objeto: true }, { numero: true }],
           query.ano ? { ano: query.ano } : undefined,
         ),
@@ -224,8 +231,9 @@ export class SearchService {
 
     const loadServidores = (): Promise<ServidorSearchRow[]> => {
       if (!selectedTypes.has('servidores')) return Promise.resolve([]);
+      const effectiveQ = hintedTypes.has('servidores') ? '' : normalizedQ;
       return this.prisma.servidor.findMany({
-        where: this.buildTextWhere(normalizedQ, [
+        where: this.buildTextWhere(effectiveQ, [
           { nome: true },
           { matricula: true },
         ]),
@@ -243,9 +251,10 @@ export class SearchService {
       if (!(selectedTypes.has('transferencias') || requiresProgramInputs)) {
         return Promise.resolve([]);
       }
+      const effectiveQ = hintedTypes.has('transferencias') ? '' : normalizedQ;
       return this.prisma.transferencia.findMany({
         where: this.buildTextWhere(
-          normalizedQ,
+          effectiveQ,
           [{ descricao: true }, { programa: true }],
           query.ano ? { ano: query.ano } : undefined,
         ),
@@ -269,9 +278,10 @@ export class SearchService {
       if (!(selectedTypes.has('emendas') || requiresProgramInputs)) {
         return Promise.resolve([]);
       }
+      const effectiveQ = hintedTypes.has('emendas') ? '' : normalizedQ;
       return this.prisma.emendaParlamentar.findMany({
         where: this.buildTextWhere(
-          normalizedQ,
+          effectiveQ,
           [{ descricao: true }, { programa: true }, { numeroEmpenho: true }],
           query.ano
             ? {
@@ -497,7 +507,10 @@ export class SearchService {
     };
   }
 
-  private parseTypes(rawTypes?: string): Set<SearchType> {
+  private parseTypes(
+    rawTypes?: string,
+    fallback?: Set<SearchType>,
+  ): Set<SearchType> {
     const allTypes: SearchType[] = [
       'despesas',
       'receitas',
@@ -509,7 +522,9 @@ export class SearchService {
       'emendas',
     ];
 
-    if (!rawTypes) return new Set(allTypes);
+    if (!rawTypes) {
+      return fallback && fallback.size > 0 ? new Set(fallback) : new Set(allTypes);
+    }
 
     const selected = rawTypes
       .split(',')
@@ -519,6 +534,33 @@ export class SearchService {
       );
 
     return new Set(selected.length > 0 ? selected : allTypes);
+  }
+
+  private resolveHintedTypes(query: string): Set<SearchType> {
+    const normalized = this.normalize(query);
+    if (!normalized) return new Set();
+    const tokens = normalized.split(/\s+/).filter(Boolean);
+
+    const aliases: Array<{ type: SearchType; terms: string[] }> = [
+      { type: 'despesas', terms: ['despesa', 'despesas', 'gasto', 'gastos'] },
+      { type: 'receitas', terms: ['receita', 'receitas', 'arrecadacao', 'arrecadacoes'] },
+      { type: 'obras', terms: ['obra', 'obras'] },
+      { type: 'contratos', terms: ['contrato', 'contratos', 'licitacao', 'licitacoes'] },
+      { type: 'servidores', terms: ['servidor', 'servidores', 'folha', 'remuneracao', 'remuneracoes'] },
+      { type: 'programas', terms: ['programa', 'programas', 'social', 'sociais'] },
+      { type: 'transferencias', terms: ['transferencia', 'transferencias', 'repasse', 'repasses'] },
+      { type: 'emendas', terms: ['emenda', 'emendas', 'parlamentar', 'parlamentares'] },
+    ];
+
+    const hinted = aliases
+      .filter(
+        (entry) =>
+          entry.terms.includes(normalized) ||
+          tokens.some((token) => entry.terms.includes(token)),
+      )
+      .map((entry) => entry.type);
+
+    return new Set(hinted);
   }
 
   private buildTextWhere(
@@ -531,17 +573,32 @@ export class SearchService {
     };
 
     if (!q) return base;
+    const tokens = this
+      .normalize(q)
+      .split(/\s+/)
+      .filter((token) => token.length >= 2);
 
-    const or = fields.map((field) => {
-      const fieldName = Object.keys(field)[0];
+    const buildOr = (term: string) =>
+      fields.map((field) => {
+        const fieldName = Object.keys(field)[0];
+        return {
+          [fieldName]: { contains: term, mode: 'insensitive' as const },
+        };
+      });
+
+    const phraseOr = buildOr(q);
+    if (tokens.length <= 1) {
       return {
-        [fieldName]: { contains: q, mode: 'insensitive' },
+        ...base,
+        OR: phraseOr,
       };
-    });
+    }
+
+    const tokenOr = tokens.flatMap((token) => buildOr(token));
 
     return {
       ...base,
-      OR: or,
+      OR: [...phraseOr, ...tokenOr],
     };
   }
 
