@@ -94,6 +94,9 @@ model Despesa {
 
   @@index([unidadeGestoraId])
   @@index([dataEmissao])
+  @@index([categoria])
+  @@index([programa])
+  @@index([funcao])
 }
 
 //
@@ -124,6 +127,8 @@ model Receita {
 
   @@index([unidadeGestoraId])
   @@index([ano, mes])
+  @@index([categoria])
+  @@index([naturezaReceita])
 }
 
 //
@@ -162,6 +167,9 @@ model Transferencia {
 
   @@index([unidadeGestoraId])
   @@index([ano, mes])
+  @@index([tipo])
+  @@index([categoria])
+  @@index([programa])
 }
 
 //
@@ -202,6 +210,8 @@ model Remuneracao {
 
   @@index([unidadeGestoraId])
   @@index([ano, mes])
+  @@index([cargo])
+  @@index([naturezaCargo])
 }
 
 //
@@ -247,6 +257,8 @@ model Licitacao {
 
   @@index([unidadeGestoraId])
   @@index([ano])
+  @@index([status])
+  @@index([categoria])
 }
 
 //
@@ -287,6 +299,10 @@ model Contrato {
 
   @@index([unidadeGestoraId])
   @@index([ano])
+  @@index([status])
+  @@index([categoria])
+  @@index([tipoContratacaoId])
+  @@index([dataAssinatura])
 }
 
 //
@@ -328,6 +344,9 @@ model Obra {
 
   @@index([unidadeGestoraId])
   @@index([municipio])
+  @@index([status])
+  @@index([categoria])
+  @@index([dataAtualizacao])
 }
 
 //
@@ -370,4 +389,7 @@ model EmendaParlamentar {
 
   @@index([unidadeGestoraId])
   @@index([dataEmissao])
+  @@index([tipo])
+  @@index([categoria])
+  @@index([programa])
 }
