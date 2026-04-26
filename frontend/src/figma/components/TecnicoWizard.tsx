@@ -151,6 +151,31 @@ function toCsv(headers: string[], rows: ReportRow[]): string {
   return lines.join('\n');
 }
 
+const WIZARD_PAGE_SIZE = 100;
+const MAX_WIZARD_PAGES = 200;
+
+type PagedResponse = {
+  items: unknown[];
+  meta: {
+    totalPages: number;
+  };
+};
+
+async function fetchAllPages<TResponse extends PagedResponse>(
+  fetchPage: (page: number, pageSize: number) => Promise<TResponse>,
+): Promise<{ first: TResponse; items: TResponse['items'] }> {
+  const first = await fetchPage(1, WIZARD_PAGE_SIZE);
+  const items = [...first.items];
+  const totalPages = Math.min(first.meta.totalPages, MAX_WIZARD_PAGES);
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const response = await fetchPage(page, WIZARD_PAGE_SIZE);
+    items.push(...response.items);
+  }
+
+  return { first, items };
+}
+
 export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
   const [step, setStep] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -199,8 +224,10 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
 
     switch (sel.dataType) {
       case 'despesas': {
-        const response = await getDespesas({ ano, q, pageSize: 200 });
-        const rows = response.items.map((item) => ({
+        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+          getDespesas({ ano, q, page, pageSize }),
+        );
+        const rows = items.map((item) => ({
           Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
           Descrição: item.descricao,
           Programa: item.programa ?? 'N/D',
@@ -223,8 +250,10 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'receitas': {
-        const response = await getReceitas({ ano, q, pageSize: 200 });
-        const rows = response.items.map((item) => ({
+        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+          getReceitas({ ano, q, page, pageSize }),
+        );
+        const rows = items.map((item) => ({
           Código: item.codigo ?? 'N/D',
           Descrição: item.descricao,
           Categoria: item.categoria ?? 'N/D',
@@ -246,13 +275,16 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'contratos': {
-        const response = await getContratosGuidedSearch({
-          q,
-          ano,
-          tipo: 'Todos',
-          pageSize: 200,
-        });
-        const rows = response.items.map((item) => ({
+        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+          getContratosGuidedSearch({
+            q,
+            ano,
+            tipo: 'Todos',
+            page,
+            pageSize,
+          }),
+        );
+        const rows = items.map((item) => ({
           Número: item.numero,
           Objeto: item.objeto,
           Órgão: item.orgao,
@@ -275,8 +307,10 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'servidores': {
-        const response = await getServidores({ ano, q, pageSize: 200 });
-        const rows = response.items.map((item) => ({
+        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+          getServidores({ ano, q, page, pageSize }),
+        );
+        const rows = items.map((item) => ({
           Nome: item.nome,
           Matrícula: item.matricula ?? 'N/D',
           Cargo: item.remuneracaoAtual?.cargo ?? 'N/D',
@@ -297,12 +331,15 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'obras': {
-        const response = await getObras({
-          q,
-          status: 'todas',
-          pageSize: 200,
-        });
-        const rows = response.items.map((item) => ({
+        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+          getObras({
+            q,
+            status: 'todas',
+            page,
+            pageSize,
+          }),
+        );
+        const rows = items.map((item) => ({
           Obra: item.descricao,
           Município: item.municipio,
           Categoria: item.categoria ?? 'N/D',
@@ -325,8 +362,10 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'programas': {
-        const response = await getProgramas({ q, pageSize: 200 });
-        const rows = response.items.map((item) => ({
+        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+          getProgramas({ q, page, pageSize }),
+        );
+        const rows = items.map((item) => ({
           Programa: item.nome,
           Secretaria: item.secretaria,
           Investimento: formatCurrency(item.investimento),
@@ -347,8 +386,10 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'transferencias': {
-        const response = await getTransferencias({ ano, q, pageSize: 200 });
-        const rows = response.items.map((item) => ({
+        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+          getTransferencias({ ano, q, page, pageSize }),
+        );
+        const rows = items.map((item) => ({
           Tipo: item.tipo,
           Ano: item.ano,
           Descrição: item.descricao ?? 'N/D',
@@ -371,8 +412,10 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         };
       }
       case 'emendas': {
-        const response = await getEmendas({ ano, q, pageSize: 200 });
-        const rows = response.items.map((item) => ({
+        const { first: response, items } = await fetchAllPages((page, pageSize) =>
+          getEmendas({ ano, q, page, pageSize }),
+        );
+        const rows = items.map((item) => ({
           Empenho: item.numeroEmpenho,
           Descrição: item.descricao ?? 'N/D',
           Programa: item.programa ?? 'N/D',
