@@ -1,10 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { ASSUNTOS_VALIDOS } from '@/src/features/ai/assuntos';
 import type { BuscaResponse } from '@/src/features/ai/types';
 import { fetchJson } from '@/src/lib/api/fetch-json';
+
+type HealthResponse = {
+  ok: boolean;
+  message: string;
+};
 
 const prompts = [
   'Quanto foi gasto com saude em 2026?',
@@ -19,10 +24,32 @@ export function AiAssistantPanel() {
   const [resposta, setResposta] = useState<BuscaResponse | null>(null);
   const [erro, setErro] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [backendHealth, setBackendHealth] = useState<HealthResponse | null>(null);
 
   const submitDisabled = loading || !pergunta.trim();
-
   const fontes = useMemo(() => resposta?.fontes ?? [], [resposta]);
+
+  useEffect(() => {
+    let active = true;
+
+    fetchJson<HealthResponse>('/api/ai/health', { timeoutMs: 5000 })
+      .then((data) => {
+        if (active) {
+          setBackendHealth(data);
+        }
+      })
+      .catch((healthError) => {
+        if (active) {
+          const message =
+            healthError instanceof Error ? healthError.message : 'Sem conexao com o backend.';
+          setBackendHealth({ ok: false, message });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,6 +70,7 @@ export function AiAssistantPanel() {
           pergunta: pergunta.trim(),
           assunto: assunto || undefined,
         }),
+        timeoutMs: 20000,
       });
 
       setResposta(data);
@@ -63,9 +91,20 @@ export function AiAssistantPanel() {
         <p className="mt-2 max-w-2xl text-sm text-white/75">
           Pergunte com linguagem simples e receba resposta cidada baseada no backend de IA.
         </p>
+
+        {backendHealth ? (
+          <p className={`mt-3 text-xs ${backendHealth.ok ? 'text-emerald-300' : 'text-amber-300'}`}>
+            Status backend: {backendHealth.ok ? 'online' : 'offline'} - {backendHealth.message}
+          </p>
+        ) : (
+          <p className="mt-3 text-xs text-white/60">Verificando conectividade do backend...</p>
+        )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-[var(--tp-border-subtle)] bg-[var(--tp-surface)] p-5">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-3 rounded-2xl border border-[var(--tp-border-subtle)] bg-[var(--tp-surface)] p-5"
+      >
         <label className="block text-sm text-[var(--tp-text-2)]" htmlFor="pergunta-ia">
           Pergunta
         </label>
@@ -130,18 +169,27 @@ export function AiAssistantPanel() {
       {resposta ? (
         <article className="space-y-4 rounded-2xl border border-[var(--tp-border-subtle)] bg-[var(--tp-surface)] p-5">
           <h2 className="text-xl font-semibold text-[var(--tp-text-1)]">Resposta da IA</h2>
-          <p className="text-sm leading-relaxed text-[var(--tp-text-2)]">{resposta.resposta_cidada ?? 'Sem resposta textual.'}</p>
+          <p className="text-sm leading-relaxed text-[var(--tp-text-2)]">
+            {resposta.resposta_cidada ?? 'Sem resposta textual.'}
+          </p>
 
           {resposta.alerta ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{resposta.alerta}</div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              {resposta.alerta}
+            </div>
           ) : null}
 
           {resposta.valores?.length ? (
             <div className="grid gap-3 sm:grid-cols-2">
               {resposta.valores.map((valor) => (
-                <div key={valor.rotulo} className="rounded-lg border border-[var(--tp-border-subtle)] bg-[var(--tp-page)] p-3">
+                <div
+                  key={valor.rotulo}
+                  className="rounded-lg border border-[var(--tp-border-subtle)] bg-[var(--tp-page)] p-3"
+                >
                   <p className="text-xs text-[var(--tp-text-3)]">{valor.rotulo}</p>
-                  <p className="mt-1 text-base font-semibold text-[var(--tp-text-1)]">{valor.valor_formatado}</p>
+                  <p className="mt-1 text-base font-semibold text-[var(--tp-text-1)]">
+                    {valor.valor_formatado}
+                  </p>
                   <p className="mt-1 text-xs text-[var(--tp-text-2)]">{valor.comparativo_local}</p>
                 </div>
               ))}
@@ -153,8 +201,13 @@ export function AiAssistantPanel() {
               <h3 className="text-sm font-semibold text-[var(--tp-text-1)]">Termos explicados</h3>
               <div className="grid gap-2">
                 {resposta.termos_explicados.map((termo) => (
-                  <div key={termo.termo} className="rounded-lg border border-[var(--tp-border-subtle)] bg-[var(--tp-page)] p-3">
-                    <p className="text-sm font-medium text-[var(--tp-text-1)]">{termo.termo} - {termo.traducao}</p>
+                  <div
+                    key={termo.termo}
+                    className="rounded-lg border border-[var(--tp-border-subtle)] bg-[var(--tp-page)] p-3"
+                  >
+                    <p className="text-sm font-medium text-[var(--tp-text-1)]">
+                      {termo.termo} - {termo.traducao}
+                    </p>
                     <p className="mt-1 text-xs text-[var(--tp-text-2)]">{termo.definicao}</p>
                   </div>
                 ))}
