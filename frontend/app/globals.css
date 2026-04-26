@@ -64,6 +64,22 @@ body {
   color: var(--tp-text-1);
 }
 
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -9999px;
+  z-index: 1000;
+  border-radius: 9999px;
+  background: var(--tp-cta);
+  color: var(--tp-cta-fg);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.skip-link:focus {
+  top: 0.75rem;
+}
+
 :focus-visible {
   outline: 2px solid var(--tp-cta);
   outline-offset: 2px;

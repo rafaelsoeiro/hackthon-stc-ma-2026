@@ -15,7 +15,9 @@ export function SearchResultsPanel({ query, entries }: SearchResultsPanelProps) 
         <h1 className="mt-2 text-3xl font-semibold text-[var(--tp-text-1)]">
           Resultados para &quot;{query}&quot;
         </h1>
-        <p className="mt-2 text-sm text-[var(--tp-text-2)]">{entries.length} resultado(s) encontrado(s).</p>
+        <p className="mt-2 text-sm text-[var(--tp-text-2)]" aria-live="polite">
+          {entries.length} resultado(s) encontrado(s).
+        </p>
       </div>
 
       {entries.length === 0 ? (

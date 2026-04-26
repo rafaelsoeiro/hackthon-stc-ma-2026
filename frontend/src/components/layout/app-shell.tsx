@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 pt-6 sm:px-6 md:grid-cols-[16rem_1fr] lg:px-8">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-        <main>{children}</main>
+        <main id="main-content">{children}</main>
       </div>
 
       <Footer />
