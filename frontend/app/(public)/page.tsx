@@ -1,12 +1,6 @@
 import type { Metadata } from 'next';
 
-import {
-  AIInsightsSection,
-  FiquePorDentroSection,
-  HeroSection,
-  HomeNavStrip,
-  QuickAccessSection,
-} from '@/src/components/sections/home';
+import { FigmaHomePage } from '@/src/components/figma/home-page';
 
 export const metadata: Metadata = {
   title: 'Inicio | Portal da Transparencia MA',
@@ -14,13 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return (
-    <div className="space-y-6 pb-4">
-      <HeroSection />
-      <HomeNavStrip />
-      <QuickAccessSection />
-      <AIInsightsSection />
-      <FiquePorDentroSection />
-    </div>
-  );
+  return <FigmaHomePage />;
 }

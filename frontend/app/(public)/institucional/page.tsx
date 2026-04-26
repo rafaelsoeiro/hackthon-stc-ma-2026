@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 
-import { InstitutionalPanel } from '@/src/components/discovery';
+import { FigmaRouteRenderer } from '@/src/components/figma/route-renderer';
 
 export const metadata: Metadata = {
   title: 'Institucional | Portal da Transparencia MA',
   description: 'Informacoes institucionais sobre o portal e o orgao responsavel.',
 };
 
-export default function InstitucionalPage() {
-  return <InstitutionalPanel />;
+export default function Page() {
+  return <FigmaRouteRenderer kind="institucional" />;
 }

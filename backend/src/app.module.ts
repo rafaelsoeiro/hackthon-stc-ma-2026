@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AiModule } from './modules/ai/ai.module';
 import { TransparencyModule } from './modules/ai/transparency/transparency.module';
+import { PrismaModule } from './database/prisma.module';
+import { PublicDataModule } from './modules/public-data/public-data.module';
 import appConfig from './config/app.config';
 
 @Module({
@@ -26,8 +28,10 @@ import appConfig from './config/app.config';
     }),
 
     // ── Módulos de domínio ───────────────────────────────────────────────────
+    PrismaModule,
     AiModule,
     TransparencyModule,
+    PublicDataModule,
   ],
 })
 export class AppModule {}

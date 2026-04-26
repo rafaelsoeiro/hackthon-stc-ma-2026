@@ -25,11 +25,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       />
 
       <aside
-        className={`fixed left-0 top-0 z-50 h-full w-72 border-r border-[var(--tp-border-subtle)] bg-[var(--tp-surface)] p-4 shadow-xl transition-transform md:static md:z-0 md:h-auto md:w-64 md:translate-x-0 md:shadow-none ${
+        className={`fixed left-0 top-0 z-50 h-full w-72 border-r border-[var(--tp-border-subtle)] bg-[var(--tp-surface)] p-4 shadow-xl transition-transform ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="mb-4 flex items-center justify-between md:hidden">
+        <div className="mb-4 flex items-center justify-between">
           <strong className="text-[var(--tp-text-1)]">Navegacao</strong>
           <button
             type="button"

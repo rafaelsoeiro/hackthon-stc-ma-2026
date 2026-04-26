@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from '../../generated/prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function rand(min: number, max: number): number { return Math.random() * (max - min) + min; }
