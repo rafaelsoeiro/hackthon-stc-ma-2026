@@ -21,12 +21,12 @@ export function FigmaHomePage() {
   }, [router]);
 
   return (
-    <>
+    <div className="overflow-x-hidden">
       <Hero onNavigate={handleNavigate} />
       <HomeNavStrip onNavigate={handleNavigate} />
       <QuickAccess onNavigate={handleNavigate} />
       <AIInsights onNavigate={handleNavigate} />
       <FiquePorDentro onNavigate={handleNavigate} />
-    </>
+    </div>
   );
 }

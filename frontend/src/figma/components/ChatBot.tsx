@@ -1,14 +1,15 @@
 'use client';
 
-import { MessageCircle, X, Sparkles, ArrowRight } from 'lucide-react';
+import { X, Sparkles, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { generateAiQuestionSuggestions } from '@/src/lib/api/ai-client';
 
 interface ChatBotProps {
   onOpenFullChat: () => void;
 }
 
-const QUICK_QUESTIONS = [
+const DEFAULT_QUICK_QUESTIONS = [
   'Quanto o MA gastou com saúde?',
   'Obras paradas em 2026',
   'Salário de servidores',
@@ -18,6 +19,24 @@ const QUICK_QUESTIONS = [
 export default function ChatBot({ onOpenFullChat }: ChatBotProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [quickQuestions, setQuickQuestions] = useState(DEFAULT_QUICK_QUESTIONS);
+
+  useEffect(() => {
+    let active = true;
+
+    void generateAiQuestionSuggestions('chatbot flutuante')
+      .then((questions) => {
+        if (!active || questions.length === 0) return;
+        setQuickQuestions(questions.slice(0, 4));
+      })
+      .catch(() => {
+        if (!active) return;
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (dismissed) return null;
 
@@ -85,7 +104,7 @@ export default function ChatBot({ onOpenFullChat }: ChatBotProps) {
 
               <p className="text-xs mb-2 uppercase tracking-widest" style={{ color: 'var(--tp-text-4)' }}>Comece com:</p>
               <div className="space-y-1.5 mb-4">
-                {QUICK_QUESTIONS.map((q, i) => (
+                {quickQuestions.map((q, i) => (
                   <button
                     key={i}
                     onClick={onOpenFullChat}

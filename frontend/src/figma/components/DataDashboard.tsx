@@ -103,18 +103,18 @@ export default function DataDashboard({ onNavigate, currentPage, pageLabel = 'Pa
           breadcrumbs={[{ label: pageLabel }]}
           onNavigate={onNavigate}
           actions={
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <select
                 value={timeframe}
                 onChange={(e) => setTimeframe(e.target.value)}
-                className="rounded-full border px-3 py-1.5 text-xs focus:outline-none"
+                className="rounded-full border px-3 py-1.5 text-xs focus:outline-none shrink-0"
                 style={{ borderColor: 'var(--tp-border)', backgroundColor: 'var(--tp-surface)', color: 'var(--tp-text-1)' }}
               >
                 <option value="2026">2026</option>
                 <option value="2025">2025</option>
                 <option value="2024">2024</option>
               </select>
-              <button className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors" style={{ borderColor: 'var(--tp-border)', backgroundColor: 'var(--tp-surface)', color: 'var(--tp-text-2)' }}>
+              <button className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors" style={{ borderColor: 'var(--tp-border)', backgroundColor: 'var(--tp-surface)', color: 'var(--tp-text-2)' }}>
                 <Download className="size-3" />
                 Exportar
               </button>

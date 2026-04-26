@@ -1,15 +1,17 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Sparkles, TrendingUp, AlertCircle, CheckCircle, Info, Bell, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import JargonTooltip from './JargonTooltip';
+import { generateHomeInsights } from '@/src/lib/api/ai-client';
 
 interface AIInsightsProps {
   onNavigate?: (page: string) => void;
 }
 
 export default function AIInsights({ onNavigate }: AIInsightsProps) {
-  const insights = [
+  const defaultInsights = [
     {
       type: 'success',
       icon: CheckCircle,
@@ -73,6 +75,45 @@ export default function AIInsights({ onNavigate }: AIInsightsProps) {
       tag: 'Novidade',
     },
   ];
+
+  const [insights, setInsights] = useState(defaultInsights);
+
+  useEffect(() => {
+    let active = true;
+
+    void generateHomeInsights()
+      .then((items) => {
+        if (!active || items.length === 0) return;
+
+        const icons = [CheckCircle, TrendingUp, AlertCircle, Info];
+        const styles = [
+          { iconBg: '#D1FAE5', iconColor: '#059669', borderColor: '#A7F3D0' },
+          { iconBg: '#DBEAFE', iconColor: '#2563EB', borderColor: '#BFDBFE' },
+          { iconBg: '#FEF3C7', iconColor: '#D97706', borderColor: '#FDE68A' },
+          { iconBg: '#F3E8FF', iconColor: '#7C3AED', borderColor: '#DDD6FE' },
+        ];
+
+        setInsights(
+          items.slice(0, 4).map((item, index) => ({
+            type: 'ai',
+            icon: icons[index % icons.length],
+            title: item.title,
+            description: item.description,
+            iconBg: styles[index % styles.length].iconBg,
+            iconColor: styles[index % styles.length].iconColor,
+            borderColor: styles[index % styles.length].borderColor,
+            tag: item.tag,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!active) return;
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="py-16" style={{ backgroundColor: 'var(--tp-surface)' }}>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { ASSUNTOS_VALIDOS } from '@/src/features/ai/assuntos';
 import type { BuscaResponse } from '@/src/features/ai/types';
-import { fetchJson } from '@/src/lib/api/fetch-json';
+import { askAi, getAiHealth } from '@/src/lib/api/ai-client';
 
 type HealthResponse = {
   ok: boolean;
@@ -32,7 +32,7 @@ export function AiAssistantPanel() {
   useEffect(() => {
     let active = true;
 
-    fetchJson<HealthResponse>('/api/ai/health', { timeoutMs: 5000 })
+    getAiHealth(5000)
       .then((data) => {
         if (active) {
           setBackendHealth(data);
@@ -63,15 +63,13 @@ export function AiAssistantPanel() {
     setLoading(true);
 
     try {
-      const data = await fetchJson<BuscaResponse>('/api/ai/busca', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const data = await askAi(
+        {
           pergunta: pergunta.trim(),
           assunto: assunto || undefined,
-        }),
-        timeoutMs: 20000,
-      });
+        },
+        20000,
+      );
 
       setResposta(data);
     } catch (requestError) {

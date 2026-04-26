@@ -78,7 +78,7 @@ export default function PageHeader({
         </div>
 
         {/* Título + Meta */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl" style={{ color: 'var(--tp-text-1)' }}>{title}</h1>
@@ -96,12 +96,16 @@ export default function PageHeader({
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 rounded-full bg-[#ECFDF5] border border-[#A7F3D0] px-3 py-1.5 text-xs text-[#065F46] shrink-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
+            <div className="flex items-center gap-1.5 rounded-full border border-[#A7F3D0] bg-[#ECFDF5] px-3 py-1.5 text-[11px] text-[#065F46] sm:text-xs shrink-0">
               <RefreshCw className="size-3" />
               Atualizado: {updatedAt}
             </div>
-            {actions && <div className="flex items-center gap-2">{actions}</div>}
+            {actions && (
+              <div className="w-full min-w-0 overflow-x-auto sm:w-auto hide-scrollbar">
+                <div className="flex items-center gap-2">{actions}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

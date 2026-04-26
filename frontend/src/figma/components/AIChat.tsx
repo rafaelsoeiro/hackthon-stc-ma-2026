@@ -4,6 +4,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Sparkles, Send, RefreshCw, ChevronRight, X, Home, ChevronLeft, BookOpen, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { askAi, resolveAiAssuntoByDataType } from '@/src/lib/api/ai-client';
 
 interface AIChatProps {
   onNavigate?: (page: string) => void;
@@ -17,29 +18,6 @@ interface Message {
   timestamp: Date;
 }
 
-const MOCK_RESPONSES: Record<string, { content: string; sources: string[] }> = {
-  default: {
-    content: 'Analisando os dados do Tesauro Institucional... Com base nas informações disponíveis, posso confirmar que sua pergunta envolve dados oficiais do estado do Maranhão. Para uma resposta mais completa, acesse os painéis temáticos ou reformule sua pergunta com mais detalhes.',
-    sources: ['MT-0001: Receitas Correntes', 'MT-0012: Despesas por Função'],
-  },
-  saude: {
-    content: 'Em 2026, o Maranhão destinou **R$ 7,2 bilhões** à Saúde, representando **25% do orçamento total**. Comparado a 2025, o investimento cresceu **15%**, com destaque para:\n\n• **R$ 2,1 bi** em medicamentos de alto custo\n• **R$ 1,8 bi** em hospitais regionais\n• **R$ 890 mi** em atenção básica\n\nA execução orçamentária da Saúde está em 86% do planejado para o período.',
-    sources: ['MT-0011: Despesas por Função — Saúde', 'MT-0015: Execução Orçamentária', 'MT-0022: Contratos de Saúde'],
-  },
-  obras: {
-    content: 'O Maranhão possui atualmente **847 obras ativas** distribuídas em 217 municípios, totalizando **R$ 4,2 bilhões** em investimentos. Situação atual:\n\n• **660 obras** em andamento (78%) — dentro do prazo\n• **23 obras** atrasadas (2,7%) — causas: clima e reajustes\n• **164 obras** concluídas em 2026\n\nO Hospital Regional de Imperatriz é a maior obra em andamento: R$ 85 milhões, 78% concluída.',
-    sources: ['MT-0030: Obras Públicas', 'MT-0031: Contratos de Obras', 'MT-0032: Cronograma de Execução'],
-  },
-  servidores: {
-    content: 'O Estado do Maranhão conta com **147.328 servidores ativos** com folha mensal de **R$ 1,2 bilhão**. Distribuição por área:\n\n• **Educação**: 55.884 servidores (38%)\n• **Saúde**: 29.465 servidores (20%)\n• **Segurança Pública**: 22.099 servidores (15%)\n• **Outras secretarias**: 39.880 servidores (27%)\n\nO salário médio é de R$ 5.847/mês.',
-    sources: ['MT-0036: Quadro de Pessoal', 'MT-0038: Folha de Pagamento', 'MT-0040: Servidores por Órgão'],
-  },
-  contratos: {
-    content: 'O Maranhão possui **12.430 contratos ativos** totalizando **R$ 8,6 bilhões**. Transparência nos processos:\n\n• **11.062 contratos** (89%) → com processo licitatório\n• **868 contratos** (7%) → dispensa de licitação\n• **500 contratos** (4%) → inexigibilidade de licitação\n\nOs 342 fornecedores mais ativos respondem por 73% do volume contratado.',
-    sources: ['MT-0026: Contratos Vigentes', 'MT-0028: Licitações', 'MT-0029: Fornecedores'],
-  },
-};
-
 const suggestedQuestions = [
   { text: 'Quanto o Maranhão gastou com saúde em 2026?', key: 'saude', tag: 'Despesas' },
   { text: 'Quais obras estão atrasadas?', key: 'obras', tag: 'Obras' },
@@ -48,12 +26,27 @@ const suggestedQuestions = [
   { text: 'Quais programas sociais estão ativos?', key: 'programas', tag: 'Social' },
 ];
 
+const WELCOME_MESSAGE =
+  'Ola! Sou o assistente de IA do Portal da Transparencia do Maranhao. Estou conectado ao Tesauro Institucional e posso responder perguntas sobre despesas, receitas, obras, contratos, servidores e programas sociais. O que voce quer saber?';
+
+function inferDataType(question: string): string | undefined {
+  const q = question.toLowerCase();
+  if (q.includes('saude') || q.includes('educacao') || q.includes('despesa') || q.includes('receita')) return 'despesas';
+  if (q.includes('obra') || q.includes('infraestrutura') || q.includes('hospital')) return 'obras';
+  if (q.includes('contrato') || q.includes('licitacao') || q.includes('fornecedor')) return 'contratos';
+  if (q.includes('servidor') || q.includes('folha') || q.includes('salario') || q.includes('remuneracao')) return 'servidores';
+  if (q.includes('programa') || q.includes('social') || q.includes('beneficiario')) return 'programas';
+  if (q.includes('transferencia') || q.includes('repasse') || q.includes('convenio')) return 'transferencias';
+  if (q.includes('emenda') || q.includes('parlamentar')) return 'emendas';
+  return undefined;
+}
+
 export default function AIChat({ onNavigate }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '0',
       type: 'bot',
-      content: 'Olá! Sou o assistente de IA do Portal da Transparência do Maranhão. Estou conectado ao **Tesauro Institucional** (MT-0001 a MT-0049) e posso responder perguntas sobre:\n\n• Despesas e receitas do Estado\n• Obras e contratos públicos\n• Servidores e folha de pagamento\n• Programas sociais\n• Licitações e transferências\n\nO que você quer saber?',
+      content: WELCOME_MESSAGE,
       sources: [],
       timestamp: new Date(),
     },
@@ -62,21 +55,19 @@ export default function AIChat({ onNavigate }: AIChatProps) {
   const [isTyping, setIsTyping] = useState(false);
   const [showSources, setShowSources] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [messages, isTyping]);
 
-  const getResponse = (question: string) => {
-    const q = question.toLowerCase();
-    if (q.includes('saúde') || q.includes('saude') || q.includes('hospital') || q.includes('medicamento')) return MOCK_RESPONSES.saude;
-    if (q.includes('obra') || q.includes('construção') || q.includes('ponte') || q.includes('hospital regional')) return MOCK_RESPONSES.obras;
-    if (q.includes('servidor') || q.includes('funcionário') || q.includes('salário') || q.includes('folha') || q.includes('educação')) return MOCK_RESPONSES.servidores;
-    if (q.includes('contrato') || q.includes('licitação') || q.includes('fornecedor')) return MOCK_RESPONSES.contratos;
-    return MOCK_RESPONSES.default;
-  };
-
-  const handleSend = (text?: string) => {
+  const handleSend = async (text?: string) => {
     const question = text ?? inputValue;
     if (!question.trim()) return;
 
@@ -87,23 +78,57 @@ export default function AIChat({ onNavigate }: AIChatProps) {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInputValue('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = getResponse(question);
+    try {
+      const dataType = inferDataType(question);
+      const response = await askAi(
+        {
+          pergunta: question.trim(),
+          assunto: resolveAiAssuntoByDataType(dataType),
+        },
+        35000,
+      );
+
+      const alertText = response.alerta ? `\n\nAlerta: ${response.alerta}` : '';
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        content: response.content,
-        sources: response.sources,
+        content: `${response.resposta_cidada ?? 'Nao foi possivel gerar uma resposta textual para esta pergunta.'}${alertText}`,
+        sources: response.fontes ?? [],
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, botMsg]);
+      setMessages((prev) => [...prev, botMsg]);
+    } catch (error) {
+      const botMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content:
+          error instanceof Error
+            ? `Nao foi possivel consultar a IA agora. Detalhe: ${error.message}`
+            : 'Nao foi possivel consultar a IA agora.',
+        sources: [],
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, botMsg]);
+    } finally {
       setIsTyping(false);
-    }, 1200 + Math.random() * 800);
+    }
   };
+
+  const parseBold = (text: string) =>
+    text.split(/(\*\*[^*]+\*\*)/g).map((segment, index) => {
+      if (segment.startsWith('**') && segment.endsWith('**')) {
+        return (
+          <strong key={`bold-${index}`}>
+            {segment.slice(2, -2)}
+          </strong>
+        );
+      }
+      return <span key={`text-${index}`}>{segment}</span>;
+    });
 
   const renderMarkdown = (text: string) => {
     return text
@@ -113,12 +138,12 @@ export default function AIChat({ onNavigate }: AIChatProps) {
           return (
             <div key={i} className="flex items-start gap-2 my-0.5">
               <span className="text-[#FFB800] mt-1 shrink-0">•</span>
-              <span dangerouslySetInnerHTML={{ __html: line.slice(1).trim().replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+              <span>{parseBold(line.slice(1).trim())}</span>
             </div>
           );
         }
         return line ? (
-          <p key={i} className="my-1" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+          <p key={i} className="my-1">{parseBold(line)}</p>
         ) : <div key={i} className="my-1" />;
       });
   };
@@ -173,7 +198,10 @@ export default function AIChat({ onNavigate }: AIChatProps) {
 
       <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Chat Messages */}
-        <div className="flex-1 space-y-6 mb-6">
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 space-y-6 mb-6 overflow-y-auto pr-1"
+        >
           {messages.map((msg) => (
             <motion.div
               key={msg.id}
@@ -279,7 +307,7 @@ export default function AIChat({ onNavigate }: AIChatProps) {
               {suggestedQuestions.map((q, i) => (
                 <button
                   key={i}
-                  onClick={() => handleSend(q.text)}
+                  onClick={() => void handleSend(q.text)}
                   className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm transition-all"
                   style={{ backgroundColor: 'var(--tp-surface)', border: '1px solid var(--tp-border-subtle)', color: 'var(--tp-text-2)' }}
                 >
@@ -304,7 +332,7 @@ export default function AIChat({ onNavigate }: AIChatProps) {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  handleSend();
+                  void handleSend();
                 }
               }}
               placeholder="Pergunte sobre qualquer dado público do Maranhão..."
@@ -323,7 +351,7 @@ export default function AIChat({ onNavigate }: AIChatProps) {
                 </button>
               )}
               <button
-                onClick={() => handleSend()}
+                onClick={() => void handleSend()}
                 disabled={!inputValue.trim() || isTyping}
                 className="flex size-9 items-center justify-center rounded-full hover:shadow-[0_4px_12px_rgba(255,184,0,0.4)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 style={{ backgroundColor: 'var(--tp-cta)', color: 'var(--tp-cta-fg)' }}
@@ -341,7 +369,7 @@ export default function AIChat({ onNavigate }: AIChatProps) {
           {messages.length > 2 && (
             <div className="flex justify-center mt-2">
               <button
-                onClick={() => setMessages([{ id: '0', type: 'bot', content: 'Conversa reiniciada. Como posso ajudar?', sources: [], timestamp: new Date() }])}
+                onClick={() => setMessages([{ id: '0', type: 'bot', content: WELCOME_MESSAGE, sources: [], timestamp: new Date() }])}
                 className="flex items-center gap-1.5 text-xs transition-colors"
                 style={{ color: 'var(--tp-text-4)' }}
               >

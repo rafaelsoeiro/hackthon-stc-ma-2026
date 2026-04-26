@@ -101,10 +101,10 @@ export default function HomeNavStrip({ onNavigate }: HomeNavStripProps) {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Linha de prioridade: Ouvidoria + e-SIC */}
-        <div className="flex items-center justify-between gap-3 py-2">
+        <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <span className="text-xs hidden sm:inline shrink-0" style={{ color: 'var(--tp-text-4)' }}>Acesso prioritário:</span>
           <div
-            className="flex items-center gap-2 overflow-x-auto"
+            className="flex w-full min-w-0 items-center gap-2 overflow-x-auto sm:w-auto"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {PRIORITY_LINKS.map((link) => {

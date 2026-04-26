@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import PageHeader from './PageHeader';
 import { getObras, getObrasSummary, type ObrasItem, type ObrasSummaryResponse } from '@/src/lib/api/public-data-client';
 import { useDebouncedValue } from '@/src/lib/hooks/use-debounced-value';
+import { generateObraAnalysis } from '@/src/lib/api/ai-client';
 
 interface ObrasMapProps {
   onNavigate?: (page: string) => void;
@@ -19,6 +20,7 @@ export default function ObrasMap({ onNavigate }: ObrasMapProps) {
   const [summary, setSummary] = useState<ObrasSummaryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [analysisByObraId, setAnalysisByObraId] = useState<Record<number, string>>({});
   const debouncedSearchText = useDebouncedValue(searchText, 300);
 
   useEffect(() => {
@@ -106,6 +108,37 @@ export default function ObrasMap({ onNavigate }: ObrasMapProps) {
 
   const obraSelecionada = obras.find(o => o.id === selectedObra);
 
+  useEffect(() => {
+    if (!obraSelecionada) return;
+    if (analysisByObraId[obraSelecionada.id]) return;
+
+    let active = true;
+
+    void generateObraAnalysis({
+      descricao: obraSelecionada.descricao,
+      municipio: obraSelecionada.municipio,
+      status: obraSelecionada.status,
+      percentualExecucao: obraSelecionada.percentualExecucao,
+      valorTotal: obraSelecionada.valorTotal,
+      dataPrevisaoFim: obraSelecionada.dataPrevisaoFim,
+      credorNome: obraSelecionada.credorNome,
+    })
+      .then((analysis) => {
+        if (!active || !analysis) return;
+        setAnalysisByObraId((current) => ({
+          ...current,
+          [obraSelecionada.id]: analysis,
+        }));
+      })
+      .catch(() => {
+        if (!active) return;
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [analysisByObraId, obraSelecionada]);
+
   return (
     <div className="min-h-[60vh] bg-gray-50">
       {onNavigate && (
@@ -129,7 +162,7 @@ export default function ObrasMap({ onNavigate }: ObrasMapProps) {
 
           {/* Filtros */}
           <div className="mb-6 flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[300px]">
+            <div className="w-full min-w-0 flex-1 md:min-w-[300px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
                 <input
@@ -142,7 +175,7 @@ export default function ObrasMap({ onNavigate }: ObrasMapProps) {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {[
                 { value: 'todas', label: 'Todas' },
                 { value: 'em_andamento', label: 'Em andamento' },
@@ -152,7 +185,7 @@ export default function ObrasMap({ onNavigate }: ObrasMapProps) {
                 <button
                   key={filter.value}
                   onClick={() => setFilterStatus(filter.value)}
-                  className={`rounded-xl px-4 py-2 text-sm transition-all ${
+                  className={`rounded-xl px-3 py-2 text-xs sm:px-4 sm:text-sm transition-all ${
                     filterStatus === filter.value
                       ? 'bg-blue-600 text-white'
                       : 'bg-white text-gray-700 hover:bg-gray-100 border'
@@ -253,7 +286,7 @@ export default function ObrasMap({ onNavigate }: ObrasMapProps) {
                   </div>
 
                   {/* Pins no mapa */}
-                  {obrasFiltradas.map((obra, idx) => (
+                  {obrasFiltradas.slice(0, 12).map((obra, idx) => (
                     <motion.div
                       key={obra.id}
                       initial={{ scale: 0 }}
@@ -261,8 +294,8 @@ export default function ObrasMap({ onNavigate }: ObrasMapProps) {
                       transition={{ delay: idx * 0.1 }}
                       className="absolute"
                       style={{
-                        left: `${20 + idx * 18}%`,
-                        top: `${30 + (idx % 2) * 20}%`,
+                        left: `${12 + (idx % 5) * 18}%`,
+                        top: `${24 + (Math.floor(idx / 5) % 3) * 20}%`,
                       }}
                     >
                       <button
@@ -371,12 +404,13 @@ export default function ObrasMap({ onNavigate }: ObrasMapProps) {
                       <span className="text-sm">Análise da IA</span>
                     </div>
                     <p className="text-sm text-gray-700">
-                      {obraSelecionada.status === 'paralisada'
-                        ? 'Esta obra está atrasada em relação ao cronograma. Principais causas: condições climáticas.'
-                        : obraSelecionada.status === 'concluida'
-                        ? 'Obra concluída conforme o cronograma. Já está em pleno funcionamento.'
-                        : `Esta obra está ${obraSelecionada.percentualExecucao > 75 ? 'adiantada' : 'no prazo'} em relação ao cronograma inicial.`
-                      }
+                      {analysisByObraId[obraSelecionada.id] ?? (
+                        obraSelecionada.status === 'paralisada'
+                          ? 'Esta obra esta atrasada em relacao ao cronograma. Principais causas: condicoes climaticas.'
+                          : obraSelecionada.status === 'concluida'
+                            ? 'Obra concluida conforme o cronograma. Ja esta em pleno funcionamento.'
+                            : `Esta obra esta ${obraSelecionada.percentualExecucao > 75 ? 'adiantada' : 'no prazo'} em relacao ao cronograma inicial.`
+                      )}
                     </p>
                   </div>
 
