@@ -3,6 +3,21 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
   DollarSign,
   TrendingUp,
   FileText,
@@ -13,7 +28,7 @@ import {
   Landmark,
   Globe,
   MapPin,
-  Map,
+  Map as MapIcon,
   Search,
   BarChart2,
   FileSpreadsheet,
@@ -55,6 +70,8 @@ type DataTypeId =
   | 'programas'
   | 'transferencias'
   | 'emendas';
+type DetailLevelId = 'resumido' | 'completo' | 'bruto';
+type ResumoChartKind = 'bar' | 'line' | 'pie';
 
 type ReportRow = Record<string, string | number>;
 
@@ -66,6 +83,107 @@ type ReportData = {
   totals: Array<{ label: string; value: string }>;
   generatedAt: string;
 };
+
+function selectRowsByDetail(
+  detailLevel: DetailLevelId,
+  rowsByLevel: Record<DetailLevelId, ReportRow[]>,
+  fallbackHeaders: Record<DetailLevelId, string[]>,
+): { headers: string[]; rows: ReportRow[] } {
+  const selectedRows = rowsByLevel[detailLevel] ?? rowsByLevel.completo;
+  const rows = detailLevel === 'resumido' ? selectedRows.slice(0, 25) : selectedRows;
+  const headers = rows[0] ? Object.keys(rows[0]) : fallbackHeaders[detailLevel];
+  return { headers, rows };
+}
+
+function buildResumoChartData(report: ReportData): Array<{ name: string; value: number }> {
+  if (!report.headers.length || report.rows.length === 0) {
+    return [{ name: 'Sem dados', value: 0 }];
+  }
+
+  const categoryKey = report.headers[0];
+  const counter = new Map<string, number>();
+
+  for (const row of report.rows) {
+    const rawValue = row[categoryKey];
+    const name = String(rawValue ?? 'N/D').trim() || 'N/D';
+    counter.set(name, (counter.get(name) ?? 0) + 1);
+  }
+
+  return Array.from(counter.entries())
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+}
+
+function buildResumoChartInsight(
+  report: ReportData,
+  chartData: Array<{ name: string; value: number }>,
+): string {
+  if (!report.rows.length || chartData.length === 0 || chartData[0]?.value === 0) {
+    return 'Nao houve registros para montar distribuicao no recorte selecionado.';
+  }
+
+  const top = chartData[0];
+  const percent = Math.round((top.value / report.rows.length) * 100);
+  return `O maior grupo no recorte resumido e "${top.name}", com ${top.value.toLocaleString('pt-BR')} registro(s), representando cerca de ${percent}% da amostra exibida.`;
+}
+
+function clampNarrativeLength(text: string): string {
+  let normalized = text.replace(/\s+/g, ' ').trim();
+  const filler =
+    ' Este texto e uma narrativa tecnica preliminar, mantida em modo demonstrativo, e sera substituida por explicacao dinamica com IA na etapa final do projeto.';
+
+  while (normalized.length < 500) {
+    normalized += filler;
+  }
+
+  if (normalized.length > 800) {
+    normalized = `${normalized.slice(0, 797).trimEnd()}...`;
+  }
+
+  return normalized;
+}
+
+function renderNarrativeWithBold(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={`narrative-bold-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={`narrative-part-${index}`}>{part}</span>;
+  });
+}
+
+function buildResumoNarrative(
+  dataType: DataTypeId | '',
+  report: ReportData,
+  chartData: Array<{ name: string; value: number }>,
+): string {
+  const top = chartData[0];
+  const topName = top?.name ?? 'N/D';
+  const topValue = top?.value ?? 0;
+  const totalRows = report.rows.length;
+  const totalLabel = report.total.toLocaleString('pt-BR');
+  const sampledLabel = totalRows.toLocaleString('pt-BR');
+  const pct = totalRows > 0 ? Math.round((topValue / totalRows) * 100) : 0;
+
+  const narrativeByType: Record<DataTypeId, string> = {
+    despesas: `A leitura resumida de despesas mostra um panorama inicial da distribuicao por orgao e programa, com foco no comportamento agregado do gasto. No recorte atual, o grupo **"${topName}"** concentra **${topValue.toLocaleString('pt-BR')} registros**, equivalente a aproximadamente **${pct}% da amostra exibida** (${sampledLabel} linhas de um total de ${totalLabel} registros encontrados). Esse resultado sugere maior incidencia operacional nesse eixo e ajuda a direcionar uma auditoria progressiva: primeiro em tendencia geral, depois em contratos, empenhos e unidades vinculadas. Como este texto ainda esta em modo mockado, ele serve para ilustrar o formato de explicacao executiva que sera automatizado posteriormente por IA, mantendo linguagem clara para usuarios tecnicos e nao tecnicos.`,
+    receitas: `No resumo de receitas, o grafico prioriza a leitura de evolucao entre grupos para indicar estabilidade, crescimento ou queda relativa no periodo selecionado. O ponto de maior destaque foi **"${topName}"**, com **${topValue.toLocaleString('pt-BR')} ocorrencias** na amostra, representando cerca de **${pct}%** das ${sampledLabel} linhas retornadas nesta visualizacao resumida, dentro de ${totalLabel} registros totais encontrados. Essa perspectiva permite avaliar concentracao arrecadatoria e dependencia de determinadas rubricas antes de aprofundar no detalhamento completo. O texto permanece propositalmente mockado para validar UX e narrativa analitica; na proxima etapa sera substituido por interpretacao dinamica com IA, preservando coerencia metodologica e contexto fiscal.`,
+    contratos: `Para contratos, o resumo enfatiza composicao por categorias relevantes de monitoramento, facilitando entendimento rapido de onde esta a maior massa de registros. Neste resultado, **"${topName}"** aparece como principal grupo com **${topValue.toLocaleString('pt-BR')} itens**, cerca de **${pct}% da amostra exibida** (${sampledLabel} linhas), considerando ${totalLabel} ocorrencias localizadas na consulta. O objetivo e orientar triagem inicial para analistas, controle interno e equipes de gestao, sinalizando pontos que merecem verificacao em modalidade, vigencia, fornecedor e status de execucao. Esta explicacao ainda e mockada, porem ja reproduz o padrao textual final esperado: objetiva, contextual e conectada ao grafico para reduzir ambiguidade na interpretacao dos dados.`,
+    servidores: `No tema de servidores, a visualizacao resumida organiza os registros por agrupamentos que facilitam leitura de concentracao funcional e distribuicao de ocorrencias. O grupo mais recorrente foi **"${topName}"**, totalizando **${topValue.toLocaleString('pt-BR')} entradas**, o que corresponde a aproximadamente **${pct}% da amostra apresentada** (${sampledLabel} linhas em tela), dentro de ${totalLabel} resultados recuperados pela busca. Essa camada resumida nao substitui a analise de remuneracao individual, mas ajuda a definir prioridade investigativa por cargo, orgao e perfil de lotacao antes de abrir o nivel completo ou bruto. O paragrafo esta em formato mockado para validar experiencia do usuario e estrutura de comunicacao que sera automatizada por IA em versoes seguintes.`,
+    obras: `Em obras publicas, a leitura resumida foi desenhada para destacar composicao geral dos registros por grupos de acompanhamento, oferecendo visao imediata sobre onde se concentra maior volume no recorte selecionado. No cenario atual, **"${topName}"** lidera com **${topValue.toLocaleString('pt-BR')} ocorrencias**, cerca de **${pct}%** das ${sampledLabel} linhas apresentadas, a partir de ${totalLabel} registros totais localizados. Esse retrato inicial apoia priorizacao de monitoramento sobre status, execucao percentual, municipio e investimento associado, sem exigir mergulho imediato em todas as colunas detalhadas. O texto segue em modo mockado de forma intencional, apenas para validar formato e densidade da interpretacao; depois sera substituido por narrativa automatica via IA com contexto dinâmico.`,
+    programas: `No bloco de programas sociais, a visao resumida procura evidenciar a distribuicao dos registros por agrupamentos de maior impacto, permitindo identificar rapidamente foco de execucao. O grupo **"${topName}"** aparece como principal neste recorte, com **${topValue.toLocaleString('pt-BR')} registros**, representando aproximadamente **${pct}% da amostra exibida** (${sampledLabel} linhas), dentro de ${totalLabel} resultados encontrados na consulta. Essa perspectiva ajuda a orientar analise de investimento, capilaridade e status de implementacao antes da abertura de dados completos e campos tecnicos. A narrativa exibida ainda e mockada e existe para validar comunicacao entre grafico e tabela; na etapa seguinte, esse texto sera substituido por explicacao inteligente contextualizada por IA.`,
+    transferencias: `Para transferencias, a leitura resumida usa comportamento por grupo para facilitar avaliacao do fluxo no periodo, ajudando a detectar concentracoes e variacoes relevantes de execucao. Neste retorno, **"${topName}"** ocupa a maior posicao com **${topValue.toLocaleString('pt-BR')} registros**, aproximadamente **${pct}% da amostra mostrada** (${sampledLabel} linhas), considerando ${totalLabel} resultados totais para os filtros aplicados. Com essa camada, o usuario consegue priorizar analise posterior em tipo de transferencia, programa associado, orgao responsavel e desempenho financeiro, reduzindo custo de exploracao inicial. O texto permanece mockado por enquanto, servindo como prototipo de narrativa analitica; em breve sera substituido por uma versao gerada por IA com maior personalizacao.`,
+    emendas: `No tema de emendas, o resumo foi estruturado para mostrar de forma objetiva a distribuicao dos registros e indicar onde se concentra o maior volume de ocorrencias no recorte consultado. O grupo **"${topName}"** lidera com **${topValue.toLocaleString('pt-BR')} entradas**, equivalentes a cerca de **${pct}%** das ${sampledLabel} linhas exibidas nesta etapa, dentro de ${totalLabel} resultados totais retornados. Essa leitura inicial apoia triagem de prioridade para analise de empenho, liquidacao e pagamento por orgao e programa, antes de aprofundar no modo completo ou bruto. O conteudo desta explicacao ainda e mockado para validar densidade textual e usabilidade, e sera evoluido para uma narrativa automatizada por IA aderente ao contexto real da consulta.`,
+  };
+
+  const defaultNarrative =
+    'Nao foi possivel classificar automaticamente o tema do relatorio. Ainda assim, a visualizacao resumida preserva a funcao de leitura inicial da distribuicao, com foco em entendimento rapido do recorte e preparacao para analise detalhada nas proximas etapas.';
+
+  return clampNarrativeLength(
+    dataType ? narrativeByType[dataType] : defaultNarrative,
+  );
+}
 
 const DATA_TYPES: Array<{
   id: DataTypeId;
@@ -97,7 +215,7 @@ const PERIODS = [
 const REGIONS = [
   { id: 'estado', label: 'Todo o Maranhão', sub: '217 municípios', icon: Globe, color: '#3B82F6', hasSubOptions: false },
   { id: 'capital', label: 'Capital — São Luís', sub: 'Região metropolitana', icon: MapPin, color: '#EC4899', hasSubOptions: false },
-  { id: 'macro', label: 'Por Macrorregião', sub: '6 macrorregiões', icon: Map, color: '#10B981', hasSubOptions: true },
+  { id: 'macro', label: 'Por Macrorregião', sub: '6 macrorregiões', icon: MapIcon, color: '#10B981', hasSubOptions: true },
   { id: 'municipio', label: 'Por Município', sub: 'Busca direta', icon: Search, color: '#F59E0B', hasSubOptions: true },
 ] as const;
 
@@ -153,6 +271,31 @@ function toCsv(headers: string[], rows: ReportRow[]): string {
 
 const WIZARD_PAGE_SIZE = 100;
 const MAX_WIZARD_PAGES = 200;
+const RESUMO_CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316', '#14B8A6'];
+
+function getResumoChartKind(dataType: DataTypeId | ''): ResumoChartKind {
+  switch (dataType) {
+    case 'receitas':
+    case 'transferencias':
+      return 'line';
+    case 'contratos':
+    case 'obras':
+    case 'programas':
+      return 'pie';
+    case 'despesas':
+    case 'servidores':
+    case 'emendas':
+    default:
+      return 'bar';
+  }
+}
+
+function getResumoChartTitle(dataType: DataTypeId | '', kind: ResumoChartKind): string {
+  if (kind === 'line') return 'Evolução resumida por grupo (Top 8)';
+  if (kind === 'pie') return 'Composição percentual por grupo (Top 8)';
+  if (dataType === 'servidores') return 'Distribuição de servidores por grupo (Top 8)';
+  return 'Distribuição resumida por grupo (Top 8)';
+}
 
 type PagedResponse = {
   items: unknown[];
@@ -222,15 +365,49 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
     periodEnd: '',
     region: '',
     subRegion: '',
-    detailLevel: '',
+    detailLevel: '' as DetailLevelId | '',
   });
 
   const dt = useMemo(() => DATA_TYPES.find((d) => d.id === sel.dataType), [sel.dataType]);
   const period = useMemo(() => PERIODS.find((p) => p.id === sel.period), [sel.period]);
   const region = useMemo(() => REGIONS.find((r) => r.id === sel.region), [sel.region]);
+  const detail = useMemo(
+    () => DETAIL_LEVELS.find((item) => item.id === sel.detailLevel),
+    [sel.detailLevel],
+  );
+  const resumoChartData = useMemo(
+    () =>
+      report && sel.detailLevel === 'resumido'
+        ? buildResumoChartData(report)
+        : [],
+    [report, sel.detailLevel],
+  );
+  const resumoChartInsight = useMemo(
+    () =>
+      report && sel.detailLevel === 'resumido'
+        ? buildResumoChartInsight(report, resumoChartData)
+        : '',
+    [report, resumoChartData, sel.detailLevel],
+  );
+  const resumoNarrative = useMemo(
+    () =>
+      report && sel.detailLevel === 'resumido'
+        ? buildResumoNarrative(sel.dataType, report, resumoChartData)
+        : '',
+    [report, resumoChartData, sel.dataType, sel.detailLevel],
+  );
+  const resumoChartKind = useMemo(() => getResumoChartKind(sel.dataType), [sel.dataType]);
+  const resumoChartTitle = useMemo(
+    () => getResumoChartTitle(sel.dataType, resumoChartKind),
+    [sel.dataType, resumoChartKind],
+  );
   const canAdvance = () => {
     if (step === 0) return !!sel.dataType;
-    if (step === 1) return sel.period === 'personalizado' ? !!(sel.periodStart && sel.periodEnd) : !!sel.period;
+    if (step === 1) {
+      if (sel.period !== 'personalizado') return !!sel.period;
+      if (!(sel.periodStart && sel.periodEnd)) return false;
+      return sel.periodStart <= sel.periodEnd;
+    }
     if (step === 2) {
       if (sel.region === 'macro') return !!sel.subRegion;
       if (sel.region === 'municipio') return municipio.trim().length > 1;
@@ -259,9 +436,15 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
     if (!sel.dataType) {
       throw new Error('Tipo de dado não selecionado.');
     }
+    if (!sel.detailLevel) {
+      throw new Error('Nível de detalhe não selecionado.');
+    }
 
     const selectedDataType = sel.dataType;
-    const ano = yearFromPeriod(sel.period);
+    const detailLevel = sel.detailLevel;
+    const ano = sel.period === 'personalizado' && sel.periodStart
+      ? new Date(sel.periodStart).getFullYear()
+      : yearFromPeriod(sel.period);
     const q = queryForDataType(selectedDataType);
     const generatedAt = new Date().toLocaleString('pt-BR');
 
@@ -270,18 +453,48 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
           getDespesas({ ano, q: queryText, page, pageSize }),
         );
-        const rows = items.map((item) => ({
-          Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
-          Descrição: item.descricao,
-          Programa: item.programa ?? 'N/D',
-          Empenhado: formatCurrency(item.valorEmpenhado),
-          Liquidado: formatCurrency(item.valorLiquidado),
-          Pago: formatCurrency(item.valorPago),
-        }));
+        const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
+          resumido: items.map((item) => ({
+            Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
+            Programa: item.programa ?? 'N/D',
+            Pago: formatCurrency(item.valorPago),
+          })),
+          completo: items.map((item) => ({
+            Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
+            Descrição: item.descricao,
+            Programa: item.programa ?? 'N/D',
+            Empenhado: formatCurrency(item.valorEmpenhado),
+            Liquidado: formatCurrency(item.valorLiquidado),
+            Pago: formatCurrency(item.valorPago),
+          })),
+          bruto: items.map((item) => ({
+            Id: item.id,
+            DataEmissão: item.dataEmissao,
+            CódigoEmpenho: item.codigoEmpenho ?? 'N/D',
+            Descrição: item.descricao,
+            Função: item.funcao ?? 'N/D',
+            Programa: item.programa ?? 'N/D',
+            Categoria: item.categoria ?? 'N/D',
+            Credor: item.credorNome ?? 'N/D',
+            Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
+            ValorEmpenhado: item.valorEmpenhado,
+            ValorLiquidado: item.valorLiquidado,
+            ValorPago: item.valorPago,
+          })),
+        };
+        const { headers, rows } = selectRowsByDetail(
+          detailLevel,
+          rowsByLevel,
+          {
+            resumido: ['Órgão', 'Programa', 'Pago'],
+            completo: ['Órgão', 'Descrição', 'Programa', 'Empenhado', 'Liquidado', 'Pago'],
+            bruto: ['Id', 'DataEmissão', 'CódigoEmpenho', 'Descrição', 'Função', 'Programa', 'Categoria', 'Credor', 'Órgão', 'ValorEmpenhado', 'ValorLiquidado', 'ValorPago'],
+          },
+        );
 
         return {
           title: 'Despesas Públicas',
-          headers: ['Órgão', 'Descrição', 'Programa', 'Empenhado', 'Liquidado', 'Pago'],
+          headers,
           rows,
           total: response.meta.total,
           totals: [
@@ -296,18 +509,46 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
           getReceitas({ ano, q: queryText, page, pageSize }),
         );
-        const rows = items.map((item) => ({
-          Código: item.codigo ?? 'N/D',
-          Descrição: item.descricao,
-          Categoria: item.categoria ?? 'N/D',
-          Previsto: formatCurrency(item.valorPrevisto),
-          Realizado: formatCurrency(item.valorRealizado),
-          Ano: item.ano,
-        }));
+        const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
+          resumido: items.map((item) => ({
+            Código: item.codigo ?? 'N/D',
+            Descrição: item.descricao,
+            Realizado: formatCurrency(item.valorRealizado),
+          })),
+          completo: items.map((item) => ({
+            Código: item.codigo ?? 'N/D',
+            Descrição: item.descricao,
+            Categoria: item.categoria ?? 'N/D',
+            Previsto: formatCurrency(item.valorPrevisto),
+            Realizado: formatCurrency(item.valorRealizado),
+            Ano: item.ano,
+          })),
+          bruto: items.map((item) => ({
+            Id: item.id,
+            Código: item.codigo ?? 'N/D',
+            Descrição: item.descricao,
+            Natureza: item.naturezaReceita,
+            Categoria: item.categoria ?? 'N/D',
+            Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
+            Ano: item.ano,
+            Mês: item.mes ?? 'N/D',
+            ValorPrevisto: item.valorPrevisto,
+            ValorRealizado: item.valorRealizado,
+          })),
+        };
+        const { headers, rows } = selectRowsByDetail(
+          detailLevel,
+          rowsByLevel,
+          {
+            resumido: ['Código', 'Descrição', 'Realizado'],
+            completo: ['Código', 'Descrição', 'Categoria', 'Previsto', 'Realizado', 'Ano'],
+            bruto: ['Id', 'Código', 'Descrição', 'Natureza', 'Categoria', 'Órgão', 'Ano', 'Mês', 'ValorPrevisto', 'ValorRealizado'],
+          },
+        );
 
         return {
           title: 'Receitas Públicas',
-          headers: ['Código', 'Descrição', 'Categoria', 'Previsto', 'Realizado', 'Ano'],
+          headers,
           rows,
           total: response.meta.total,
           totals: [
@@ -327,18 +568,50 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
             pageSize,
           }),
         );
-        const rows = items.map((item) => ({
-          Número: item.numero,
-          Objeto: item.objeto,
-          Órgão: item.orgao,
-          Fornecedor: item.fornecedor ?? 'N/D',
-          Tipo: item.tipo,
-          Valor: formatCurrency(item.valorGlobal),
-        }));
+        const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
+          resumido: items.map((item) => ({
+            Número: item.numero,
+            Objeto: item.objeto,
+            Valor: formatCurrency(item.valorGlobal),
+          })),
+          completo: items.map((item) => ({
+            Número: item.numero,
+            Objeto: item.objeto,
+            Órgão: item.orgao,
+            Fornecedor: item.fornecedor ?? 'N/D',
+            Tipo: item.tipo,
+            Valor: formatCurrency(item.valorGlobal),
+          })),
+          bruto: items.map((item) => ({
+            Id: item.id,
+            Número: item.numero,
+            Ano: item.ano,
+            Objeto: item.objeto,
+            Órgão: item.orgao,
+            Fornecedor: item.fornecedor ?? 'N/D',
+            Tipo: item.tipo,
+            Modalidade: item.modalidade ?? 'N/D',
+            Categoria: item.categoria ?? 'N/D',
+            Status: item.status ?? 'N/D',
+            DataAssinatura: item.dataAssinatura ?? 'N/D',
+            InícioVigência: item.inicioVigencia ?? 'N/D',
+            FimVigência: item.fimVigencia ?? 'N/D',
+            ValorGlobal: item.valorGlobal,
+          })),
+        };
+        const { headers, rows } = selectRowsByDetail(
+          detailLevel,
+          rowsByLevel,
+          {
+            resumido: ['Número', 'Objeto', 'Valor'],
+            completo: ['Número', 'Objeto', 'Órgão', 'Fornecedor', 'Tipo', 'Valor'],
+            bruto: ['Id', 'Número', 'Ano', 'Objeto', 'Órgão', 'Fornecedor', 'Tipo', 'Modalidade', 'Categoria', 'Status', 'DataAssinatura', 'InícioVigência', 'FimVigência', 'ValorGlobal'],
+          },
+        );
 
         return {
           title: 'Contratos Públicos',
-          headers: ['Número', 'Objeto', 'Órgão', 'Fornecedor', 'Tipo', 'Valor'],
+          headers,
           rows,
           total: response.meta.total,
           totals: [
@@ -353,18 +626,48 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
           getServidores({ ano, q: queryText, page, pageSize }),
         );
-        const rows = items.map((item) => ({
-          Nome: item.nome,
-          Matrícula: item.matricula ?? 'N/D',
-          Cargo: item.remuneracaoAtual?.cargo ?? 'N/D',
-          Órgão: item.remuneracaoAtual?.unidadeGestora.sigla ?? item.remuneracaoAtual?.unidadeGestora.nome ?? 'N/D',
-          'Remuneração Atual': item.remuneracaoAtual ? formatCurrency(item.remuneracaoAtual.valor) : 'N/D',
-          'Média': formatCurrency(item.remuneracaoMedia),
-        }));
+        const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
+          resumido: items.map((item) => ({
+            Nome: item.nome,
+            Cargo: item.remuneracaoAtual?.cargo ?? 'N/D',
+            'Remuneração Atual': item.remuneracaoAtual ? formatCurrency(item.remuneracaoAtual.valor) : 'N/D',
+          })),
+          completo: items.map((item) => ({
+            Nome: item.nome,
+            Matrícula: item.matricula ?? 'N/D',
+            Cargo: item.remuneracaoAtual?.cargo ?? 'N/D',
+            Órgão: item.remuneracaoAtual?.unidadeGestora.sigla ?? item.remuneracaoAtual?.unidadeGestora.nome ?? 'N/D',
+            'Remuneração Atual': item.remuneracaoAtual ? formatCurrency(item.remuneracaoAtual.valor) : 'N/D',
+            Média: formatCurrency(item.remuneracaoMedia),
+          })),
+          bruto: items.map((item) => ({
+            Id: item.id,
+            Nome: item.nome,
+            CPF: item.cpf ?? 'N/D',
+            Matrícula: item.matricula ?? 'N/D',
+            Cargo: item.remuneracaoAtual?.cargo ?? 'N/D',
+            NaturezaCargo: item.remuneracaoAtual?.naturezaCargo ?? 'N/D',
+            Categoria: item.remuneracaoAtual?.categoria ?? 'N/D',
+            Órgão: item.remuneracaoAtual?.unidadeGestora.sigla ?? item.remuneracaoAtual?.unidadeGestora.nome ?? 'N/D',
+            Ano: item.remuneracaoAtual?.ano ?? 'N/D',
+            Mês: item.remuneracaoAtual?.mes ?? 'N/D',
+            RemuneraçãoAtual: item.remuneracaoAtual?.valor ?? 'N/D',
+            RemuneraçãoMédia: item.remuneracaoMedia,
+          })),
+        };
+        const { headers, rows } = selectRowsByDetail(
+          detailLevel,
+          rowsByLevel,
+          {
+            resumido: ['Nome', 'Cargo', 'Remuneração Atual'],
+            completo: ['Nome', 'Matrícula', 'Cargo', 'Órgão', 'Remuneração Atual', 'Média'],
+            bruto: ['Id', 'Nome', 'CPF', 'Matrícula', 'Cargo', 'NaturezaCargo', 'Categoria', 'Órgão', 'Ano', 'Mês', 'RemuneraçãoAtual', 'RemuneraçãoMédia'],
+          },
+        );
 
         return {
           title: 'Servidores Públicos',
-          headers: ['Nome', 'Matrícula', 'Cargo', 'Órgão', 'Remuneração Atual', 'Média'],
+          headers,
           rows,
           total: response.meta.total,
           totals: [
@@ -383,18 +686,45 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
           }),
           q,
         );
-        const rows = items.map((item) => ({
-          Obra: item.descricao,
-          Município: item.municipio,
-          Categoria: item.categoria ?? 'N/D',
-          Progresso: `${item.percentualExecucao}%`,
-          Valor: formatCurrency(item.valorTotal),
-          Status: item.status,
-        }));
+        const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
+          resumido: items.map((item) => ({
+            Obra: item.descricao,
+            Município: item.municipio,
+            Status: item.status,
+          })),
+          completo: items.map((item) => ({
+            Obra: item.descricao,
+            Município: item.municipio,
+            Categoria: item.categoria ?? 'N/D',
+            Progresso: `${item.percentualExecucao}%`,
+            Valor: formatCurrency(item.valorTotal),
+            Status: item.status,
+          })),
+          bruto: items.map((item) => ({
+            Id: item.id,
+            Obra: item.descricao,
+            Município: item.municipio,
+            Categoria: item.categoria ?? 'N/D',
+            Status: item.status,
+            PercentualExecução: item.percentualExecucao,
+            ValorTotal: item.valorTotal,
+            DataPrevisãoFim: item.dataPrevisaoFim ?? 'N/D',
+            Credor: item.credorNome ?? 'N/D',
+          })),
+        };
+        const { headers, rows } = selectRowsByDetail(
+          detailLevel,
+          rowsByLevel,
+          {
+            resumido: ['Obra', 'Município', 'Status'],
+            completo: ['Obra', 'Município', 'Categoria', 'Progresso', 'Valor', 'Status'],
+            bruto: ['Id', 'Obra', 'Município', 'Categoria', 'Status', 'PercentualExecução', 'ValorTotal', 'DataPrevisãoFim', 'Credor'],
+          },
+        );
 
         return {
           title: 'Obras Públicas',
-          headers: ['Obra', 'Município', 'Categoria', 'Progresso', 'Valor', 'Status'],
+          headers,
           rows,
           total: response.meta.total,
           totals: [
@@ -409,17 +739,45 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
           getProgramas({ q: queryText, page, pageSize }),
         );
-        const rows = items.map((item) => ({
-          Programa: item.nome,
-          Secretaria: item.secretaria,
-          Investimento: formatCurrency(item.investimento),
-          Status: item.status,
-          Origens: item.origens.join(', '),
-        }));
+        const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
+          resumido: items.map((item) => ({
+            Programa: item.nome,
+            Investimento: formatCurrency(item.investimento),
+            Status: item.status,
+          })),
+          completo: items.map((item) => ({
+            Programa: item.nome,
+            Secretaria: item.secretaria,
+            Investimento: formatCurrency(item.investimento),
+            Status: item.status,
+            Origens: item.origens.join(', '),
+          })),
+          bruto: items.map((item) => ({
+            Id: item.id,
+            Programa: item.nome,
+            Secretaria: item.secretaria,
+            Beneficiados: item.beneficiados ?? 'N/D',
+            Municípios: item.municipios ?? 'N/D',
+            Investimento: item.investimento,
+            Status: item.status,
+            Descrição: item.descricao ?? 'N/D',
+            Detalhe: item.detalhe ?? 'N/D',
+            Origens: item.origens.join(', '),
+          })),
+        };
+        const { headers, rows } = selectRowsByDetail(
+          detailLevel,
+          rowsByLevel,
+          {
+            resumido: ['Programa', 'Investimento', 'Status'],
+            completo: ['Programa', 'Secretaria', 'Investimento', 'Status', 'Origens'],
+            bruto: ['Id', 'Programa', 'Secretaria', 'Beneficiados', 'Municípios', 'Investimento', 'Status', 'Descrição', 'Detalhe', 'Origens'],
+          },
+        );
 
         return {
           title: 'Programas Sociais',
-          headers: ['Programa', 'Secretaria', 'Investimento', 'Status', 'Origens'],
+          headers,
           rows,
           total: response.meta.total,
           totals: [
@@ -433,18 +791,49 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
           getTransferencias({ ano, q: queryText, page, pageSize }),
         );
-        const rows = items.map((item) => ({
-          Tipo: item.tipo,
-          Ano: item.ano,
-          Descrição: item.descricao ?? 'N/D',
-          Programa: item.programa ?? 'N/D',
-          Realizado: formatCurrency(item.valorRealizado),
-          Pago: formatCurrency(item.valorPago),
-        }));
+        const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
+          resumido: items.map((item) => ({
+            Tipo: item.tipo,
+            Ano: item.ano,
+            Realizado: formatCurrency(item.valorRealizado),
+          })),
+          completo: items.map((item) => ({
+            Tipo: item.tipo,
+            Ano: item.ano,
+            Descrição: item.descricao ?? 'N/D',
+            Programa: item.programa ?? 'N/D',
+            Realizado: formatCurrency(item.valorRealizado),
+            Pago: formatCurrency(item.valorPago),
+          })),
+          bruto: items.map((item) => ({
+            Id: item.id,
+            Tipo: item.tipo,
+            Ano: item.ano,
+            Mês: item.mes ?? 'N/D',
+            Descrição: item.descricao ?? 'N/D',
+            Categoria: item.categoria ?? 'N/D',
+            Programa: item.programa ?? 'N/D',
+            Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
+            ValorPrevisto: item.valorPrevisto,
+            ValorRealizado: item.valorRealizado,
+            ValorEmpenhado: item.valorEmpenhado,
+            ValorLiquidado: item.valorLiquidado,
+            ValorPago: item.valorPago,
+          })),
+        };
+        const { headers, rows } = selectRowsByDetail(
+          detailLevel,
+          rowsByLevel,
+          {
+            resumido: ['Tipo', 'Ano', 'Realizado'],
+            completo: ['Tipo', 'Ano', 'Descrição', 'Programa', 'Realizado', 'Pago'],
+            bruto: ['Id', 'Tipo', 'Ano', 'Mês', 'Descrição', 'Categoria', 'Programa', 'Órgão', 'ValorPrevisto', 'ValorRealizado', 'ValorEmpenhado', 'ValorLiquidado', 'ValorPago'],
+          },
+        );
 
         return {
           title: 'Transferências',
-          headers: ['Tipo', 'Ano', 'Descrição', 'Programa', 'Realizado', 'Pago'],
+          headers,
           rows,
           total: response.meta.total,
           totals: [
@@ -459,17 +848,46 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
         const { first: response, items } = await fetchAllPagesWithFallback((queryText, page, pageSize) =>
           getEmendas({ ano, q: queryText, page, pageSize }),
         );
-        const rows = items.map((item) => ({
-          Empenho: item.numeroEmpenho,
-          Descrição: item.descricao ?? 'N/D',
-          Programa: item.programa ?? 'N/D',
-          Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
-          Pago: formatCurrency(item.valorPago),
-        }));
+        const rowsByLevel: Record<DetailLevelId, ReportRow[]> = {
+          resumido: items.map((item) => ({
+            Empenho: item.numeroEmpenho,
+            Programa: item.programa ?? 'N/D',
+            Pago: formatCurrency(item.valorPago),
+          })),
+          completo: items.map((item) => ({
+            Empenho: item.numeroEmpenho,
+            Descrição: item.descricao ?? 'N/D',
+            Programa: item.programa ?? 'N/D',
+            Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
+            Pago: formatCurrency(item.valorPago),
+          })),
+          bruto: items.map((item) => ({
+            Id: item.id,
+            DataEmissão: item.dataEmissao,
+            Empenho: item.numeroEmpenho,
+            Descrição: item.descricao ?? 'N/D',
+            Programa: item.programa ?? 'N/D',
+            Categoria: item.categoria ?? 'N/D',
+            Órgão: item.unidadeGestora.sigla ?? item.unidadeGestora.nome,
+            Credor: item.credorNome ?? 'N/D',
+            ValorEmpenhado: item.valorEmpenhado,
+            ValorLiquidado: item.valorLiquidado,
+            ValorPago: item.valorPago,
+          })),
+        };
+        const { headers, rows } = selectRowsByDetail(
+          detailLevel,
+          rowsByLevel,
+          {
+            resumido: ['Empenho', 'Programa', 'Pago'],
+            completo: ['Empenho', 'Descrição', 'Programa', 'Órgão', 'Pago'],
+            bruto: ['Id', 'DataEmissão', 'Empenho', 'Descrição', 'Programa', 'Categoria', 'Órgão', 'Credor', 'ValorEmpenhado', 'ValorLiquidado', 'ValorPago'],
+          },
+        );
 
         return {
           title: 'Emendas Parlamentares',
-          headers: ['Empenho', 'Descrição', 'Programa', 'Órgão', 'Pago'],
+          headers,
           rows,
           total: response.meta.total,
           totals: [
@@ -574,6 +992,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
       regiao: sel.region,
       sub: sel.subRegion,
       municipio,
+      detalhe: sel.detailLevel,
     });
 
     const url = `${window.location.origin}/tecnico?${params.toString()}`;
@@ -616,6 +1035,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
               {dt && <span className="rounded-full px-3 py-1.5 text-sm" style={{ backgroundColor: `${dt.color}18`, color: dt.color }}>{dt.label}</span>}
               {period && <span className="rounded-full px-3 py-1.5 text-sm" style={{ backgroundColor: 'var(--tp-surface)', color: 'var(--tp-text-2)', border: '1px solid var(--tp-border-subtle)' }}>{period.label}</span>}
               {region && <span className="rounded-full px-3 py-1.5 text-sm" style={{ backgroundColor: 'var(--tp-surface)', color: 'var(--tp-text-2)', border: '1px solid var(--tp-border-subtle)' }}>{region.label}</span>}
+              {detail && <span className="rounded-full px-3 py-1.5 text-sm" style={{ backgroundColor: `${detail.color}15`, color: detail.color, border: `1px solid ${detail.color}33` }}>{detail.label}</span>}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 mb-6">
@@ -626,6 +1046,113 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
                 </div>
               ))}
             </div>
+
+            {sel.detailLevel === 'resumido' && (
+              <div className="rounded-[20px] p-5 mb-4" style={{ backgroundColor: 'var(--tp-surface)', border: '1px solid var(--tp-border-subtle)' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart2 className="size-4" style={{ color: 'var(--tp-text-3)' }} />
+                  <span className="text-sm" style={{ color: 'var(--tp-text-1)', fontWeight: 600 }}>
+                    {resumoChartTitle}
+                  </span>
+                </div>
+                <div className="h-64">
+                  {resumoChartKind === 'pie' ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={resumoChartData}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={52}
+                          outerRadius={96}
+                          paddingAngle={2}
+                        >
+                          {resumoChartData.map((entry, index) => (
+                            <Cell
+                              key={`${entry.name}-${index}`}
+                              fill={RESUMO_CHART_COLORS[index % RESUMO_CHART_COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--tp-surface)',
+                            border: '1px solid var(--tp-border)',
+                            color: 'var(--tp-text-1)',
+                          }}
+                        />
+                        <Legend
+                          layout="vertical"
+                          verticalAlign="middle"
+                          align="right"
+                          iconType="circle"
+                          formatter={(value) => (
+                            <span style={{ display: 'inline-block', padding: '6px 0' }}>{value}</span>
+                          )}
+                          wrapperStyle={{ fontSize: '12px', paddingLeft: '10px', lineHeight: 1.9 }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : resumoChartKind === 'line' ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={resumoChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--tp-border-subtle)" />
+                        <XAxis dataKey="name" tick={{ fill: 'var(--tp-text-4)', fontSize: 11 }} />
+                        <YAxis tick={{ fill: 'var(--tp-text-4)', fontSize: 11 }} allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--tp-surface)',
+                            border: '1px solid var(--tp-border)',
+                            color: 'var(--tp-text-1)',
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="value"
+                          stroke="#3B82F6"
+                          strokeWidth={3}
+                          dot={{ fill: '#3B82F6', r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={resumoChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--tp-border-subtle)" />
+                        <XAxis dataKey="name" tick={{ fill: 'var(--tp-text-4)', fontSize: 11 }} />
+                        <YAxis tick={{ fill: 'var(--tp-text-4)', fontSize: 11 }} allowDecimals={false} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--tp-surface)',
+                            border: '1px solid var(--tp-border)',
+                            color: 'var(--tp-text-1)',
+                          }}
+                        />
+                        <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                          {resumoChartData.map((entry, index) => (
+                            <Cell
+                              key={`${entry.name}-${index}`}
+                              fill={RESUMO_CHART_COLORS[index % RESUMO_CHART_COLORS.length]}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {sel.detailLevel === 'resumido' && (
+              <div className="rounded-[16px] p-4 mb-6" style={{ backgroundColor: 'var(--tp-surface)', border: '1px solid var(--tp-border-subtle)' }}>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--tp-text-2)' }}>
+                  <span style={{ display: 'block', textAlign: 'justify' }}>
+                    {renderNarrativeWithBold(resumoNarrative || resumoChartInsight)}
+                  </span>
+                </p>
+              </div>
+            )}
 
             <div className="rounded-[20px] overflow-hidden mb-6" style={{ backgroundColor: 'var(--tp-surface)', border: '1px solid var(--tp-border-subtle)' }}>
               <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--tp-border-subtle)' }}>
@@ -754,17 +1281,64 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
               )}
 
               {step === 1 && (
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
-                  {PERIODS.map((item) => {
-                    const selected = sel.period === item.id;
-                    return (
-                      <button key={item.id} onClick={() => setSel((current) => ({ ...current, period: item.id }))} className="rounded-[16px] p-4 text-left" style={{ backgroundColor: selected ? 'rgba(255,184,0,.10)' : 'var(--tp-surface)', border: selected ? '2px solid #FFB800' : '2px solid var(--tp-border-subtle)' }}>
-                        <Calendar className="size-5 mb-2" style={{ color: selected ? '#FFB800' : 'var(--tp-text-3)' }} />
-                        <div className="text-sm" style={{ color: 'var(--tp-text-1)', fontWeight: 600 }}>{item.label}</div>
-                        <div className="text-xs" style={{ color: 'var(--tp-text-3)' }}>{item.sub}</div>
-                      </button>
-                    );
-                  })}
+                <div className="space-y-3">
+                  <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+                    {PERIODS.map((item) => {
+                      const selected = sel.period === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() =>
+                            setSel((current) => ({
+                              ...current,
+                              period: item.id,
+                              periodStart: item.id === 'personalizado' ? current.periodStart : '',
+                              periodEnd: item.id === 'personalizado' ? current.periodEnd : '',
+                            }))
+                          }
+                          className="rounded-[16px] p-4 text-left"
+                          style={{ backgroundColor: selected ? 'rgba(255,184,0,.10)' : 'var(--tp-surface)', border: selected ? '2px solid #FFB800' : '2px solid var(--tp-border-subtle)' }}
+                        >
+                          <Calendar className="size-5 mb-2" style={{ color: selected ? '#FFB800' : 'var(--tp-text-3)' }} />
+                          <div className="text-sm" style={{ color: 'var(--tp-text-1)', fontWeight: 600 }}>{item.label}</div>
+                          <div className="text-xs" style={{ color: 'var(--tp-text-3)' }}>{item.sub}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {sel.period === 'personalizado' && (
+                    <div className="grid gap-3 sm:grid-cols-2 rounded-[16px] p-4" style={{ backgroundColor: 'var(--tp-surface)', border: '1px solid var(--tp-border-subtle)' }}>
+                      <label className="text-sm" style={{ color: 'var(--tp-text-2)' }}>
+                        Data inicial
+                        <input
+                          type="date"
+                          value={sel.periodStart}
+                          onChange={(event) =>
+                            setSel((current) => ({ ...current, periodStart: event.target.value }))
+                          }
+                          className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+                          style={{ backgroundColor: 'var(--tp-page)', border: '1px solid var(--tp-border)', color: 'var(--tp-text-1)' }}
+                        />
+                      </label>
+                      <label className="text-sm" style={{ color: 'var(--tp-text-2)' }}>
+                        Data final
+                        <input
+                          type="date"
+                          value={sel.periodEnd}
+                          onChange={(event) =>
+                            setSel((current) => ({ ...current, periodEnd: event.target.value }))
+                          }
+                          className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+                          style={{ backgroundColor: 'var(--tp-page)', border: '1px solid var(--tp-border)', color: 'var(--tp-text-1)' }}
+                        />
+                      </label>
+                      {sel.periodStart && sel.periodEnd && sel.periodStart > sel.periodEnd && (
+                        <p className="sm:col-span-2 text-xs" style={{ color: '#DC2626' }}>
+                          A data final deve ser igual ou posterior à data inicial.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -787,7 +1361,7 @@ export default function TecnicoWizard({ onNavigate }: TecnicoWizardProps) {
                   {sel.region === 'macro' && (
                     <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 rounded-[16px] p-4" style={{ backgroundColor: 'var(--tp-surface)', border: '1px solid var(--tp-border-subtle)' }}>
                       {MACROS.map((macro) => (
-                        <button key={macro.id} onClick={() => setSel((current) => ({ ...current, subRegion: macro.label }))} className="rounded-xl px-3 py-2 text-sm text-left" style={{ backgroundColor: sel.subRegion === macro.label ? 'rgba(16,185,129,.12)' : 'var(--tp-page)', border: sel.subRegion === macro.label ? '1.5px solid #10B981' : '1px solid var(--tp-border-subtle)' }}>
+                        <button key={macro.id} onClick={() => setSel((current) => ({ ...current, subRegion: macro.id }))} className="rounded-xl px-3 py-2 text-sm text-left" style={{ backgroundColor: sel.subRegion === macro.id ? 'rgba(16,185,129,.12)' : 'var(--tp-page)', border: sel.subRegion === macro.id ? '1.5px solid #10B981' : '1px solid var(--tp-border-subtle)' }}>
                           {macro.label}
                         </button>
                       ))}
