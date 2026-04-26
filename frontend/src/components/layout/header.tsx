@@ -13,6 +13,8 @@ type HeaderProps = {
 export function Header({ onMenuToggle }: HeaderProps) {
   const pathname = usePathname();
   const { theme, highContrast, toggleTheme, toggleHighContrast } = useThemeSettings();
+  const isActiveRoute = (href: string) =>
+    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--tp-border-subtle)] bg-[var(--tp-surface)]/95 backdrop-blur">
@@ -33,7 +35,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
         <nav className="hidden items-center gap-4 md:flex">
           {NAV_ITEMS.slice(0, 6).map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = isActiveRoute(item.href);
             return (
               <Link
                 key={item.href}

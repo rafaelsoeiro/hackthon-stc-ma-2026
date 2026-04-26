@@ -12,6 +12,8 @@ type SidebarProps = {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const isActiveRoute = (href: string) =>
+    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <>
@@ -40,7 +42,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <nav className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = isActiveRoute(item.href);
             return (
               <Link
                 key={item.href}
