@@ -43,8 +43,10 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans:
+    'Atkinson Hyperlegible Next', 'Source Sans 3', 'Segoe UI', 'Noto Sans', 'Liberation Sans',
+    sans-serif;
+  --font-mono: 'Fira Code', 'JetBrains Mono', 'Cascadia Mono', 'Consolas', monospace;
   --color-background: var(--tp-page);
   --color-foreground: var(--tp-text-1);
 }
