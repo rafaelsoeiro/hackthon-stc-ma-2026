@@ -1,94 +1,70 @@
 import {
-  BadGatewayException,
+  HttpException,
+  Inject,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { TransparencyService } from './transparency/transparency.service';
 import { buildSystemPrompt } from './prompts/system.prompt';
 import { BuscaDto } from './dto/Busca.dto';
+import { TransparencyService } from './transparency/transparency.service';
+import { LLM_PROVIDER_TOKEN } from './core/constants/provider.tokens';
+import { LlmProviderPort } from './core/ports/llm-provider.port';
+import { ModelJsonParserService } from './shared/parser/model-json-parser.service';
+import { UserPromptBuilder } from './shared/prompt/user-prompt.builder';
 
 @Injectable()
 export class AiService {
-  private genAI: GoogleGenerativeAI;
+  private readonly logger = new Logger(AiService.name);
 
-  constructor(private transparencyService: TransparencyService) {
-    // IMPORTANTE: Em produção, o ideal é ter a chave no .env e pegar via ConfigService
-    const apiKey =
-      process.env.GEMINI_API_KEY || 'COLOQUE_SUA_CHAVE_GEMINI_AQUI';
-    this.genAI = new GoogleGenerativeAI(apiKey);
-  }
+  constructor(
+    private readonly transparencyService: TransparencyService,
+    private readonly parser: ModelJsonParserService,
+    private readonly userPromptBuilder: UserPromptBuilder,
+    @Inject(LLM_PROVIDER_TOKEN)
+    private readonly llmProvider: LlmProviderPort,
+  ) {}
 
   async processarBusca(buscaDto: BuscaDto): Promise<unknown> {
+    const provider = process.env.AI_PROVIDER?.toLowerCase() || 'openai';
+
+    this.logger.log(
+      `ai:busca:start provider=${provider} assunto=${buscaDto.assunto ?? 'auto'} perguntaChars=${buscaDto.pergunta.length}`,
+    );
+
     try {
-      // 1. Busca os dados de contexto no portal da transparência (nosso serviço mock)
       const contexto = this.transparencyService.getContextoParaIA(
         buscaDto.pergunta,
         buscaDto.assunto,
       );
 
-      // 2. Constrói o Prompt de Sistema com as regras da IN nº 001/2025
       const systemInstruction = buildSystemPrompt();
+      const userPrompt = this.userPromptBuilder.build(buscaDto, contexto);
 
-      // 3. Constrói o Prompt do Usuário (Pergunta + Contexto)
-      const userPrompt = `
-Pergunta do Cidadão: "${buscaDto.pergunta}"
-Assunto: ${buscaDto.assunto || 'Não especificado'}
-
-DADOS OBTIDOS DO PORTAL DA TRANSPARÊNCIA:
-${JSON.stringify(contexto, null, 2)}
-
-Por favor, responda estritamente no formato JSON solicitado nas normas.
-      `;
-
-      // 4. Configura o modelo
-      const model = this.genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
+      const responseText = await this.llmProvider.generateJson({
         systemInstruction,
-        generationConfig: {
-          responseMimeType: 'application/json', // Garante que a saída será JSON
-        },
+        userPrompt,
       });
 
-      // 5. Chama o Gemini
-      const result = await model.generateContent(userPrompt);
-      const responseText = result.response.text();
-
-      // 6. Retorna o JSON parseado com tratamento robusto de formato
-      return this.parseModelJsonResponse(responseText);
+      const parsed = this.parser.parse(responseText);
+      this.logger.log(`ai:busca:success provider=${provider}`);
+      return parsed;
     } catch (error) {
-      console.error('Erro na chamada do Gemini:', error);
+      if (error instanceof HttpException) {
+        this.logger.warn(
+          `ai:busca:http_error provider=${provider} status=${error.getStatus()} message=${error.message}`,
+        );
+        throw error;
+      }
+
+      this.logger.error(
+        `ai:busca:failure provider=${provider}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+
       throw new InternalServerErrorException(
-        'Não foi possível gerar a resposta com a IA. Verifique sua chave de API.',
+        'Nao foi possivel gerar a resposta com a IA. Verifique a configuracao do provider.',
       );
     }
-  }
-
-  private parseModelJsonResponse(rawResponse: string): unknown {
-    const normalized = this.normalizeJsonCandidate(rawResponse);
-
-    try {
-      return JSON.parse(normalized);
-    } catch (error) {
-      console.error(
-        'Resposta da IA não veio em JSON válido:',
-        rawResponse,
-        error,
-      );
-      throw new BadGatewayException(
-        'A IA retornou uma resposta em formato inválido. Tente novamente em instantes.',
-      );
-    }
-  }
-
-  private normalizeJsonCandidate(rawResponse: string): string {
-    const trimmed = rawResponse.trim();
-    const codeFenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-
-    if (codeFenceMatch?.[1]) {
-      return codeFenceMatch[1].trim();
-    }
-
-    return trimmed;
   }
 }
