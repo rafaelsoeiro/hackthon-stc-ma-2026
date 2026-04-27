@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from '../../generated/prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function rand(min: number, max: number): number { return Math.random() * (max - min) + min; }
@@ -10,15 +10,19 @@ export async function seedDespesas(prisma: PrismaClient): Promise<void> {
 
   const batch: Prisma.DespesaCreateManyInput[] = [];
   for (const [uIndex, unidade] of unidades.entries()) {
-    for (let j = 0; j < 80; j++) {
-      const ano = 2020 + ((j + uIndex) % 6);
+    for (let j = 0; j < 100; j++) {
+      const ano = 2020 + ((j + uIndex) % 7);
       const mes = 1 + ((j + uIndex) % 12);
       const dia = 1 + (j % 28);
       const empenhado = new Prisma.Decimal(rand(1_000, 800_000).toFixed(2));
       const liquidado = new Prisma.Decimal(empenhado.mul(new Prisma.Decimal(rand(0.7, 1).toFixed(4))).toFixed(2));
       const pago = new Prisma.Decimal(liquidado.mul(new Prisma.Decimal(rand(0.7, 1).toFixed(4))).toFixed(2));
       batch.push({
-        descricao: `Despesa UG ${uIndex + 1}-${j + 1}`,
+        descricao: pick([
+          `Despesa de custeio UG ${uIndex + 1}-${j + 1}`,
+          `Despesa de investimento UG ${uIndex + 1}-${j + 1}`,
+          `Despesa operacional UG ${uIndex + 1}-${j + 1}`,
+        ]),
         dataEmissao: new Date(`${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`),
         valorEmpenhado: empenhado,
         valorLiquidado: liquidado,

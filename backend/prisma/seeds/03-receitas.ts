@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from '../../generated/prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function rand(min: number, max: number): number { return Math.random() * (max - min) + min; }
@@ -9,8 +9,8 @@ export async function seedReceitas(prisma: PrismaClient): Promise<void> {
 
   const batch: Prisma.ReceitaCreateManyInput[] = [];
   for (const [uIndex, unidade] of unidades.entries()) {
-    for (let j = 0; j < 60; j++) {
-      const ano = 2020 + ((j + uIndex) % 6);
+    for (let j = 0; j < 72; j++) {
+      const ano = 2020 + ((j + uIndex) % 7);
       const mes = 1 + ((j + uIndex) % 12);
       const previsto = new Prisma.Decimal(rand(5_000, 1_500_000).toFixed(2));
       const realizado = new Prisma.Decimal(previsto.mul(new Prisma.Decimal(rand(0.6, 1.3).toFixed(4))).toFixed(2));

@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from '../../generated/prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function rand(min: number, max: number): number { return Math.random() * (max - min) + min; }
@@ -10,8 +10,8 @@ export async function seedEmendas(prisma: PrismaClient): Promise<void> {
 
   const emendas: Prisma.EmendaParlamentarCreateManyInput[] = [];
   for (const unidade of unidades) {
-    for (let j = 0; j < 15; j++) {
-      const ano = 2020 + (j % 6);
+    for (let j = 0; j < 18; j++) {
+      const ano = 2020 + (j % 7);
       const mes = 1 + (j % 12);
       const dia = 1 + (j % 28);
       emendas.push({
