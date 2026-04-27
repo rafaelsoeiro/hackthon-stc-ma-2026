@@ -1,0 +1,521 @@
+{
+  "info": {
+    "name": "Transparencia MA - API (Atualizada)",
+    "description": "Colecao para validar os endpoints atuais do backend (dados publicos + IA).\n\nVariaveis:\n- baseUrl: URL base da API (ex: http://localhost:3334)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "90db2120-41f4-4454-bf53-fb8dc9b4f73b"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3333"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "Endpoint raiz da API (saudacao/health basico da app)."
+          }
+        },
+        {
+          "name": "GET /api (Swagger)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api"
+              ]
+            },
+            "description": "UI do Swagger (retorna HTML)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "item": [
+        {
+          "name": "POST /ai/busca",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pergunta\": \"Quanto o governo gastou com saude em 2026?\",\n  \"assunto\": \"Gestão Fiscal\",\n  \"exercicio\": 2026,\n  \"orgao\": \"Secretaria de Saude\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai/busca",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "busca"
+              ]
+            },
+            "description": "Pergunta em linguagem natural para o modulo de IA."
+          }
+        },
+        {
+          "name": "POST /ai/speech",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"{{aiSpeechText}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai/speech",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "speech"
+              ]
+            },
+            "description": "Converte texto em audio MP3 usando o provider de IA configurado."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Data - Financeiro",
+      "item": [
+        {
+          "name": "GET /public/despesas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/despesas?page=1&pageSize=20&ano=2026&q=saude&funcao=Saude&programa=Atencao%20Basica&sortBy=valorPago&sortOrder=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "public",
+                "despesas"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "ano", "value": "2026" },
+                { "key": "q", "value": "saude" },
+                { "key": "funcao", "value": "Saude" },
+                { "key": "programa", "value": "Atencao Basica" },
+                { "key": "sortBy", "value": "valorPago" },
+                { "key": "sortOrder", "value": "desc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/despesas/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/despesas/summary?ano=2026&q=saude",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "despesas", "summary"],
+              "query": [
+                { "key": "ano", "value": "2026" },
+                { "key": "q", "value": "saude" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/receitas",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/receitas?page=1&pageSize=20&ano=2026&q=icms&naturezaReceita=Tributaria&sortBy=valorRealizado&sortOrder=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "receitas"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "ano", "value": "2026" },
+                { "key": "q", "value": "icms" },
+                { "key": "naturezaReceita", "value": "Tributaria" },
+                { "key": "sortBy", "value": "valorRealizado" },
+                { "key": "sortOrder", "value": "desc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/receitas/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/receitas/summary?ano=2026&q=icms",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "receitas", "summary"],
+              "query": [
+                { "key": "ano", "value": "2026" },
+                { "key": "q", "value": "icms" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Data - Contratos",
+      "item": [
+        {
+          "name": "GET /public/contratos",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/contratos?page=1&pageSize=20&ano=2026&tipo=Licitacao&valorMin=100000&valorMax=5000000&q=hospital&sortBy=valorGlobal&sortOrder=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "contratos"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "ano", "value": "2026" },
+                { "key": "tipo", "value": "Licitacao" },
+                { "key": "valorMin", "value": "100000" },
+                { "key": "valorMax", "value": "5000000" },
+                { "key": "q", "value": "hospital" },
+                { "key": "sortBy", "value": "valorGlobal" },
+                { "key": "sortOrder", "value": "desc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/contratos/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/contratos/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "contratos", "summary"]
+            }
+          }
+        },
+        {
+          "name": "GET /public/contratos/guided-search",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/contratos/guided-search?page=1&pageSize=20&q=merenda&tipo=Todos&area=Educacao&valorMax=1000000&ano=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "contratos", "guided-search"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "q", "value": "merenda" },
+                { "key": "tipo", "value": "Todos" },
+                { "key": "area", "value": "Educacao" },
+                { "key": "valorMax", "value": "1000000" },
+                { "key": "ano", "value": "2026" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Data - Obras",
+      "item": [
+        {
+          "name": "GET /public/obras",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/obras?page=1&pageSize=20&status=em_andamento&municipio=Sao%20Luis&q=hospital",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "obras"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "status", "value": "em_andamento" },
+                { "key": "municipio", "value": "Sao Luis" },
+                { "key": "q", "value": "hospital" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/obras/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/obras/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "obras", "summary"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Data - Servidores",
+      "item": [
+        {
+          "name": "GET /public/servidores",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/servidores?page=1&pageSize=20&ano=2026&q=educacao&cargo=Professor&sortBy=nome&sortOrder=asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "servidores"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "ano", "value": "2026" },
+                { "key": "q", "value": "educacao" },
+                { "key": "cargo", "value": "Professor" },
+                { "key": "sortBy", "value": "nome" },
+                { "key": "sortOrder", "value": "asc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/servidores/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/servidores/summary?ano=2026&q=educacao",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "servidores", "summary"],
+              "query": [
+                { "key": "ano", "value": "2026" },
+                { "key": "q", "value": "educacao" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Data - Transferencias",
+      "item": [
+        {
+          "name": "GET /public/transferencias",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/transferencias?page=1&pageSize=20&ano=2026&tipo=realizada&programa=Saude&q=municipio",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "transferencias"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "ano", "value": "2026" },
+                { "key": "tipo", "value": "realizada" },
+                { "key": "programa", "value": "Saude" },
+                { "key": "q", "value": "municipio" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/transferencias/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/transferencias/summary?ano=2026&tipo=realizada",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "transferencias", "summary"],
+              "query": [
+                { "key": "ano", "value": "2026" },
+                { "key": "tipo", "value": "realizada" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Data - Emendas",
+      "item": [
+        {
+          "name": "GET /public/emendas",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/emendas?page=1&pageSize=20&ano=2026&q=hospital&programa=Saude",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "emendas"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "ano", "value": "2026" },
+                { "key": "q", "value": "hospital" },
+                { "key": "programa", "value": "Saude" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/emendas/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/emendas/summary?ano=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "emendas", "summary"],
+              "query": [
+                { "key": "ano", "value": "2026" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Data - Programas",
+      "item": [
+        {
+          "name": "GET /public/programas",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/programas?page=1&pageSize=20&origem=Transferencia&status=Ativo&q=social",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "programas"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "origem", "value": "Transferencia" },
+                { "key": "status", "value": "Ativo" },
+                { "key": "q", "value": "social" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/programas/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/programas/summary?origem=Transferencia",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "programas", "summary"],
+              "query": [
+                { "key": "origem", "value": "Transferencia" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Data - Search e Analytics",
+      "item": [
+        {
+          "name": "GET /public/search",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/search?page=1&pageSize=20&q=educacao&types=despesas,receitas,contratos&municipio=Sao%20Luis",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "search"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" },
+                { "key": "q", "value": "educacao" },
+                { "key": "types", "value": "despesas,receitas,contratos" },
+                { "key": "municipio", "value": "Sao Luis" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/search/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/search/summary?q=educacao&types=despesas,receitas",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "search", "summary"],
+              "query": [
+                { "key": "q", "value": "educacao" },
+                { "key": "types", "value": "despesas,receitas" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/analytics/dados/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/analytics/dados/summary?ano=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "analytics", "dados", "summary"],
+              "query": [
+                { "key": "ano", "value": "2026" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/analytics/pessoas/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/analytics/pessoas/summary?ano=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "analytics", "pessoas", "summary"],
+              "query": [
+                { "key": "ano", "value": "2026" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /public/analytics/governo/summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/analytics/governo/summary?ano=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "analytics", "governo", "summary"],
+              "query": [
+                { "key": "ano", "value": "2026" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
