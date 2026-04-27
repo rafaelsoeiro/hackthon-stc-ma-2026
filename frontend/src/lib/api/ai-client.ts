@@ -19,6 +19,39 @@ export async function askAi(payload: BuscaPayload, timeoutMs = 30000): Promise<B
   });
 }
 
+export async function synthesizeAiSpeech(
+  text: string,
+  timeoutMs = 45000,
+): Promise<Blob> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch('/api/ai/speech', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const payload = await response
+        .json()
+        .catch(() => ({ message: 'Falha ao gerar audio.' }));
+      throw new Error(
+        payload && typeof payload === 'object' && 'message' in payload
+          ? String(payload.message)
+          : 'Falha ao gerar audio.',
+      );
+    }
+
+    return await response.blob();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export type TechnicalNarrativeInput = {
   dataTypeLabel: string;
   periodLabel: string;

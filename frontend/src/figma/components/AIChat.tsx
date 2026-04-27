@@ -2,9 +2,13 @@
 /* eslint-disable react-hooks/purity */
 
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, RefreshCw, ChevronRight, X, Home, ChevronLeft, BookOpen, ArrowLeft } from 'lucide-react';
+import { Sparkles, Send, RefreshCw, ChevronRight, X, Home, ChevronLeft, BookOpen, ArrowLeft, Volume2, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { askAi, resolveAiAssuntoByDataType } from '@/src/lib/api/ai-client';
+import {
+  askAi,
+  resolveAiAssuntoByDataType,
+  synthesizeAiSpeech,
+} from '@/src/lib/api/ai-client';
 
 interface AIChatProps {
   onNavigate?: (page: string) => void;
@@ -54,8 +58,12 @@ export default function AIChat({ onNavigate }: AIChatProps) {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showSources, setShowSources] = useState<string | null>(null);
+  const [audioLoadingMessageId, setAudioLoadingMessageId] = useState<string | null>(null);
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCacheRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -66,6 +74,20 @@ export default function AIChat({ onNavigate }: AIChatProps) {
       behavior: 'smooth',
     });
   }, [messages, isTyping]);
+
+  useEffect(
+    () => () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+      for (const url of audioCacheRef.current.values()) {
+        URL.revokeObjectURL(url);
+      }
+      audioCacheRef.current.clear();
+    },
+    [],
+  );
 
   const handleSend = async (text?: string) => {
     const question = text ?? inputValue;
@@ -146,6 +168,65 @@ export default function AIChat({ onNavigate }: AIChatProps) {
           <p key={i} className="my-1">{parseBold(line)}</p>
         ) : <div key={i} className="my-1" />;
       });
+  };
+
+  const normalizeTextForSpeech = (text: string) =>
+    text
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/^•\s?/gm, '')
+      .replace(/\n+/g, '. ')
+      .trim();
+
+  const stopAudioPlayback = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setPlayingMessageId(null);
+  };
+
+  const playAudioUrl = async (messageId: string, audioUrl: string) => {
+    if (!audioRef.current) {
+      const audio = new Audio();
+      audio.onended = () => setPlayingMessageId(null);
+      audio.onerror = () => setPlayingMessageId(null);
+      audioRef.current = audio;
+    }
+
+    const audio = audioRef.current;
+    audio.pause();
+    audio.src = audioUrl;
+    audio.currentTime = 0;
+    setPlayingMessageId(messageId);
+    await audio.play();
+  };
+
+  const toggleMessageSpeech = async (message: Message) => {
+    if (playingMessageId === message.id) {
+      stopAudioPlayback();
+      return;
+    }
+
+    const speechText = normalizeTextForSpeech(message.content);
+    if (!speechText) return;
+
+    setAudioLoadingMessageId(message.id);
+    try {
+      let audioUrl = audioCacheRef.current.get(message.id);
+      if (!audioUrl) {
+        const blob = await synthesizeAiSpeech(speechText);
+        audioUrl = URL.createObjectURL(blob);
+        audioCacheRef.current.set(message.id, audioUrl);
+      }
+
+      await playAudioUrl(message.id, audioUrl);
+    } catch {
+      setPlayingMessageId(null);
+    } finally {
+      setAudioLoadingMessageId((current) =>
+        current === message.id ? null : current,
+      );
+    }
   };
 
   return (
@@ -256,6 +337,33 @@ export default function AIChat({ onNavigate }: AIChatProps) {
                         </motion.div>
                       )}
                     </AnimatePresence>
+                  </div>
+                )}
+
+                {msg.type === 'bot' && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => void toggleMessageSpeech(msg)}
+                      className="flex items-center gap-1.5 text-xs transition-colors"
+                      style={{ color: 'var(--tp-text-3)' }}
+                      aria-label={
+                        playingMessageId === msg.id
+                          ? 'Parar leitura em voz alta'
+                          : 'Ouvir resposta em voz alta'
+                      }
+                      disabled={audioLoadingMessageId === msg.id}
+                    >
+                      {playingMessageId === msg.id ? (
+                        <Square className="size-3" />
+                      ) : (
+                        <Volume2 className="size-3" />
+                      )}
+                      {audioLoadingMessageId === msg.id
+                        ? 'Gerando audio...'
+                        : playingMessageId === msg.id
+                          ? 'Parar audio'
+                          : 'Ouvir resposta'}
+                    </button>
                   </div>
                 )}
 
